@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -30,7 +30,6 @@ function Router() {
 
 function App() {
   const [showSplash, setShowSplash] = useState(() => {
-    // Show splash only on first visit
     const hasVisited = sessionStorage.getItem("orange-tool-visited");
     return !hasVisited;
   });
@@ -45,9 +44,16 @@ function App() {
       <ThemeProvider>
         <LanguageProvider>
           <TooltipProvider>
-            {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-            {!showSplash && <Router />}
-            {!showSplash && <ChatWidget />}
+            <SplashScreen
+              show={showSplash}
+              onComplete={handleSplashComplete}
+            />
+            {!showSplash && (
+              <>
+                <Router />
+                <ChatWidget />
+              </>
+            )}
             <Toaster />
           </TooltipProvider>
         </LanguageProvider>
