@@ -3,69 +3,14 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  createServer as createViteServer,
-  createLogger,
-  type ConfigEnv,
-  type InlineConfig,
-} from "vite";
+import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 
 const viteLogger = createLogger();
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-
-function findProjectRoot() {
-  const candidates = [
-    process.cwd(),
-    path.resolve(moduleDir, ".."),
-    path.resolve(moduleDir, "..", ".."),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, "package.json"))) {
-      return candidate;
-    }
-  }
-
-  return path.resolve(moduleDir, "..");
-}
-
-const projectRoot = findProjectRoot();
-
-async function resolveViteDevConfig(server: Server): Promise<InlineConfig> {
-  const env: ConfigEnv = {
-    command: "serve",
-    mode: process.env.NODE_ENV ?? "development",
-    isSsrBuild: false,
-  };
-
-  const resolvedConfig =
-    typeof viteConfig === "function" ? await viteConfig(env) : await viteConfig;
-
-  const { server: baseServer = {}, ...restBaseConfig } = resolvedConfig ?? {};
-  const normalizedBaseServer = baseServer ?? {};
-  const baseHmr =
-    typeof normalizedBaseServer.hmr === "object" && normalizedBaseServer.hmr
-      ? normalizedBaseServer.hmr
-      : undefined;
-
-  return {
-    ...restBaseConfig,
-    server: {
-      ...normalizedBaseServer,
-      middlewareMode: true,
-      hmr: {
-        ...(baseHmr ?? {}),
-        server,
-      },
-      allowedHosts: true,
-    },
-    configFile: false,
-    appType: "custom",
-  } satisfies InlineConfig;
-}
+const projectRoot = path.resolve(moduleDir, "..");
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
