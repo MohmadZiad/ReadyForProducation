@@ -154,32 +154,26 @@ export default function Assistant() {
         >
           <GlassCard className="h-[600px] flex flex-col">
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 space-y-3">
               {!messages.length && !busy && (
                 <div className="h-full flex items-center justify-center text-center">
-                  <div>
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-800/20 flex items-center justify-center mx-auto mb-4">
+                  <div className="max-w-2xl mx-auto space-y-6">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-800/20 flex items-center justify-center mx-auto">
                       <Sparkles className="w-10 h-10 text-orange-400" />
                     </div>
-                    <p className="text-xl font-semibold mb-2 text-orange-600">
-                      👋 Welcome to Orange Assistant!
-                    </p>
-                    <p className="text-muted-foreground">
-                      Ask me anything about salary calculations, benefits, or HR policies.<br className="hidden sm:block" /> I'm here to make your work easier.
-                    </p>
                     {showWelcomeSuggestions && (
-                      <div className="mt-6 space-y-6">
+                      <div className="space-y-5">
                         <SuggestionChips
                           page="assistant"
                           onPick={(text) => setInput(text)}
                         />
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-3 sm:grid-cols-2">
                           {quickActions.map((card) => (
                             <button
                               key={card.title}
                               type="button"
                               onClick={card.onAction}
-                              className="group relative overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-white via-orange-50/80 to-orange-100/60 p-5 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+                              className="group relative overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-white via-orange-50/80 to-orange-100/60 p-4 sm:p-5 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
                             >
                               <div className="flex items-start justify-between">
                                 <span className="text-2xl" aria-hidden>
@@ -271,7 +265,7 @@ export default function Assistant() {
             </div>
 
             {/* Input */}
-            <div className="p-6 border-t border-border">
+            <div className="px-4 py-5 md:px-6 md:py-6 border-t border-border">
               {experimentsEnabled && contextSmartAction && (
                 <div className="mb-4 rounded-2xl border border-orange-200/70 bg-orange-50/80 px-5 py-4 shadow-inner">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -299,19 +293,19 @@ export default function Assistant() {
                   e.preventDefault();
                   handleSend();
                 }}
-                className="flex gap-3"
+                className="flex gap-2 sm:gap-3"
               >
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={t("typeMessage")}
-                  className="flex-1 px-5 py-3 rounded-2xl bg-background border-2 border-border focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                  className="flex-1 px-4 py-3 rounded-2xl bg-background border-2 border-border focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || busy}
-                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-orange-400 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-2"
+                  className="px-5 py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-orange-400 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-2"
                 >
                   {busy ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
