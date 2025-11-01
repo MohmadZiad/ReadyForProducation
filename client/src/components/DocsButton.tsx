@@ -1,7 +1,11 @@
 import * as React from "react";
 import { fetchDocs, type DocItem } from "../lib/docs";
 
-export default function DocsButton() {
+type Props = {
+  lang?: string;
+};
+
+export default function DocsButton({ lang }: Props) {
   const [open, setOpen] = React.useState(false);
   const [items, setItems] = React.useState<DocItem[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -33,7 +37,7 @@ export default function DocsButton() {
         onClick={() => setOpen((v) => !v)}
         className="rounded-full border px-6 py-2 shadow-sm bg-white/70 hover:bg-white text-sm"
       >
-        Documents
+        {lang === "ar" ? "المستندات" : "Documents"}
       </button>
 
       {open && (
