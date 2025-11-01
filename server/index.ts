@@ -1,5 +1,5 @@
 
-import "dotenv/config"; 
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -20,6 +20,25 @@ app.use(
   })
 );
 app.use(express.urlencoded({ extended: false }));
+
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -59,6 +78,11 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const shouldAttachVite =
+    nodeEnv === "development" &&
+    process.env.EMBED_VITE_DEV_SERVER === "true";
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -67,12 +91,9 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  if (shouldAttachVite) {
     await setupVite(app, server);
-  } else {
+  } else if (nodeEnv !== "development") {
     serveStatic(app);
   }
 

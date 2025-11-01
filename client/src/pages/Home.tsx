@@ -25,7 +25,7 @@ export default function Home() {
   return (
     <>
       {/* يظهر فقط عند أول تحميل (أو ريفريش) ولمدة ثانيتين */}
-      <SplashScreen show={!ready} onFinish={() => setReady(true)} />
+      <SplashScreen show={!ready} onComplete={() => setReady(true)} />
 
       {ready && (
         <div className="min-h-screen">
