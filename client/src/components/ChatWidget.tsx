@@ -100,7 +100,7 @@ export default function ChatWidget() {
   );
 
   const { toast } = useToast();
-  const [path] = useLocation();
+  const [path, setLocation] = useLocation();
   const page = getPageFromPath(path);
 
   const {
@@ -117,6 +117,60 @@ export default function ChatWidget() {
     clearError,
     registerCsat,
   } = useAssistant({ source: "widget" });
+
+  const lastUserMessage = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].role === "user") {
+        return messages[i].content;
+      }
+    }
+    return null;
+  }, [messages]);
+
+  const contextSmartAction = React.useMemo(() => {
+    if (!experimentsEnabled || !lastUserMessage) return null;
+    const lower = lastUserMessage.toLowerCase();
+    const truncate = (text: string, max = 64) =>
+      text.length > max ? `${text.slice(0, max - 1)}…` : text;
+
+    if (/(salary|adjust|increase|calculator|pay|compensation)/.test(lower)) {
+      return {
+        title: "Take it to the salary calculator",
+        description: "Open the calculator to fine-tune the numbers you just shared.",
+        cta: "Go to Calculator",
+        onAction: () => setLocation("/calculator"),
+      };
+    }
+
+    if (/(pro[-\s]?rata|leave|vacation|time off)/.test(lower)) {
+      return {
+        title: "Need the pro-rata tool?",
+        description: "Jump over to the pro-rata helper for a guided calculation.",
+        cta: "Open Pro-Rata",
+        onAction: () => setLocation("/pro-rata"),
+      };
+    }
+
+    if (/(policy|policies|hr|document|guideline|docs)/.test(lower)) {
+      return {
+        title: "Check the HR docs for confirmation",
+        description: "Browse the documentation or ask me to summarise the highlights.",
+        cta: "View Docs",
+        onAction: () => setLocation("/docs"),
+      };
+    }
+
+    return {
+      title: "Continue your last question",
+      description: `Prefill “${truncate(lastUserMessage)}” and keep the flow going.`,
+      cta: "Prefill",
+      onAction: () => {
+        setOpen(true);
+        setInput(lastUserMessage);
+        requestAnimationFrame(() => inputRef.current?.focus());
+      },
+    };
+  }, [experimentsEnabled, lastUserMessage, setLocation, setOpen, setInput]);
 
   React.useEffect(() => {
     if (!lastError) return;
@@ -337,7 +391,7 @@ export default function ChatWidget() {
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
       {open && (
-        <div className="flex h-[520px] w-[360px] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl">
+        <div className="flex h-[520px] w-[360px] flex-col overflow-hidden rounded-2xl border border-orange-100 bg-gradient-to-br from-white via-orange-50/80 to-white shadow-2xl shadow-orange-500/10">
           <div className="flex items-center justify-between border-b px-4 py-2 text-sm font-medium">
             <div className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4" /> Chat
@@ -374,13 +428,42 @@ export default function ChatWidget() {
           )}
           <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-3">
             {messages.length === 0 && !isStreaming && (
-              <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
-                <p>Ask anything about our calculators or documents.</p>
+              <div className="flex h-full flex-col items-center justify-center text-center">
+                <div className="max-w-xs rounded-3xl border border-orange-100 bg-gradient-to-br from-white via-orange-50 to-white px-5 py-6 text-sm text-orange-700 shadow-inner">
+                  <p className="text-base font-semibold text-orange-600">
+                    👋 Welcome to Orange Assistant!
+                  </p>
+                  <p className="mt-2 text-sm text-orange-700/90">
+                    Ask me anything about salary calculations, benefits, or HR policies. I'm here to make your work easier.
+                  </p>
+                </div>
               </div>
             )}
             {experimentsContent}
           </div>
           <div className="border-t px-4 py-3 space-y-2">
+            {experimentsEnabled && contextSmartAction && (
+              <div className="rounded-xl border border-orange-100 bg-orange-50/80 px-3 py-3 shadow-inner">
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-orange-900">
+                      {contextSmartAction.title}
+                    </p>
+                    <p className="text-xs text-orange-700/80">
+                      {contextSmartAction.description}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={contextSmartAction.onAction}
+                    className="self-start bg-orange-500 text-white hover:bg-orange-600"
+                  >
+                    {contextSmartAction.cta}
+                  </Button>
+                </div>
+              </div>
+            )}
             {showSuggestions && (
               <SuggestionChips
                 page={page}
