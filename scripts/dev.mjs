@@ -8,6 +8,7 @@ function start(script, label) {
   const child = spawn(npmCmd, ["run", "--silent", script], {
     stdio: ["ignore", "pipe", "pipe"],
     env: process.env,
+    shell: isWindows,
   });
 
   child.stdout.on("data", (data) => {
