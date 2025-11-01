@@ -2,11 +2,32 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 
 const viteLogger = createLogger();
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+
+function findProjectRoot() {
+  const candidates = [
+    process.cwd(),
+    path.resolve(moduleDir, ".."),
+    path.resolve(moduleDir, "..", ".."),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "package.json"))) {
+      return candidate;
+    }
+  }
+
+  return path.resolve(moduleDir, "..");
+}
+
+const projectRoot = findProjectRoot();
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -40,8 +61,7 @@ export async function setupVite(app: Express, server: Server) {
   app.use("*", async (req, res, next) => {
     try {
       const file = path.resolve(
-        import.meta.dirname,
-        "..",
+        projectRoot,
         "client",
         "index.html"
       );
@@ -57,10 +77,16 @@ export async function setupVite(app: Express, server: Server) {
 
 export function serveStatic(app: Express) {
   // مطابق لإعداد outDir في vite.config.ts
-  const distPath = path.resolve(import.meta.dirname, "public");
-  if (!fs.existsSync(distPath)) {
+  const candidatePaths = [
+    path.resolve(moduleDir, "public"),
+    path.resolve(projectRoot, "dist", "public"),
+  ];
+
+  const distPath = candidatePaths.find((candidate) => fs.existsSync(candidate));
+
+  if (!distPath) {
     throw new Error(
-      `Missing build dir: ${distPath}. Run "npm run build" first.`
+      `Missing build dir. Looked in: ${candidatePaths.join(", ")}. Run "npm run build" first.`
     );
   }
 
