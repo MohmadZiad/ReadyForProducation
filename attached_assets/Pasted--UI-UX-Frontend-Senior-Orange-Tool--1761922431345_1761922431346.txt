@@ -1,0 +1,106 @@
+أنت خبير UI/UX + Frontend Senior. نفّذ إعادة تصميم كاملة لموقع "Orange Tool" مع الحفاظ على المنطق الحالي، 
+لكن أعطِ أولوية قصوى للتصميم والحركة (Motion) والتجربة. استخدم Next.js + TailwindCSS + Framer Motion.
+لا تتوقف عند الهيكل؛ أخرج بواجهة نهائية إنتاجية "Production-ready".
+
+## 1) الهوية البصرية (Brand System)
+- لوحة ألوان أساسية: برتقالي فاخر + أبيض + رمادي دافئ، مع جراديانت ناعم:
+  --orange-50:  #FFF7F0
+  --orange-100: #FFE7D6
+  --orange-200: #FFD1AD
+  --orange-300: #FFB680
+  --orange-400: #FF9A59
+  --orange-500: #FF7A1A  (Primary)
+  --orange-600: #E06200
+  --bg-light:   #FAFAFA
+  --bg-dark:    #0F0E0D
+  --text-1:     #0E0E0E
+  --text-2:     #6B6B6B
+- تدرجات جاهزة:
+  --grad-hero: linear-gradient(135deg, #FF7A1A 0%, #FFA94D 40%, #FFE7D6 100%);
+  --grad-glow: radial-gradient(60% 60% at 50% 50%, rgba(255,122,26,0.25), rgba(255,122,26,0) 70%);
+- استخدام glassmorphism خفيف + ظلال ناعمة + حواف كبيرة (rounded-2xl إلى rounded-3xl).
+
+## 2) الثيمات واللغات (لا تُحذف)
+- دعم Dark Mode عبر class="dark" (next-themes) مع تبديل فوري من الهيدر.
+- دعم العربية/الإنجليزية مع تبديل RTL/LTR ديناميكي من الهيدر، وتحديث dir/lang على <html>.
+- حفظ تفضيلات المستخدم في LocalStorage (الثيم + اللغة).
+- هذه العناصر إلزامية في الهيدر: Logo، LanguageSwitcher، ThemeToggle، CTA رئيسي.
+
+## 3) دخول مبهِر (Intro / Splash)
+- شاشة دخول لمدة 1.2s عند التحميل الأول فقط:
+  - Logo "Orange Tool" يظهر بتتابع (blur-in + scale 0.96→1 + glow subtle).
+  - خلفية gradient animated + ذرات/شرائط ضوء تتحرك ببطء (Framer Motion).
+  - انتقال لطيف إلى الصفحة الرئيسية (fade + clip-path reveal).
+
+## 4) الصفحة الرئيسية (Landing/Dashboard)
+- Hero Section:
+  - عنوان كبير جذاب، سطر ثانوي مختصر، زرّان: "افتح المساعد" و"إطلاق الحاسبة".
+  - خلفية grad-hero + طبقة glow + عناصر زخرفية SVG متحركة خفيفة (parallax on scroll).
+- KPIs Cards (3–4 بطاقات):
+  - قيَم مثل: زمن الاستجابة، الجاهزية، المراقبة 24/7؛ كل بطاقة فيها micro-interaction (hover lift + subtle shine).
+- Feature Grid:
+  - "نتائج لحظية" / "برو راتا بذكاء" / "مكتبة حيّة" بتصميم جديد أيقوني.
+- Summary Panel:
+  - بطاقات نتائج تتحدث حيًا (placeholder إن لم توجد بيانات) مع انتقالات (layout spring).
+- Sticky Dock (اختياري):
+  - زر "فتح مكبّر" + مؤشر تقدّم معالجة (progress 0–100%) بأسلوب أنيق.
+
+## 5) الصفحات/الأقسام الإضافية
+- Calculator (الحاسبة): بطاقات فورم عصرية مع توضيح المعادلة (Formula) بشكل أنيق.
+- Pro-Rata: شريط تقدّم + مخطط مبسّط (Recharts) بألوان العلامة.
+- Assistant: لوحة محادثة أنيقة مع فقاعات رسائل gradient edges + typing dots أنيميشن.
+- Docs: قائمة وثائق بخلفية زجاجية وبحث فوري.
+
+## 6) الحركة (Motion System)
+- استخدم Framer Motion فقط (بدون مبالغة):
+  - durations: 180–260ms للواجهات التفاعلية، 480–700ms للانتقالات الكبيرة.
+  - easing: [0.22, 1, 0.36, 1] (standard springy) مع spring للمخططات والبطاقات.
+- Scroll-based reveals: يَظهر المحتوى تدريجيًا عند الاقتراب (once).
+- Hover states: رفع 4px + shadow-sm→md + sheen line (mask-image).
+
+## 7) إمكانية الوصول والأداء
+- تباين نص/خلفيات ≥ 4.5:1 للعناصر المهمة.
+- مفاتيح لوحة مفاتيح + focus ring واضح.
+- صور/أيقونات SVG محسّنة، lazy images، prefetch للخطوط (Inter/Poppins).
+- Lighthouse ≥ 90 للأداء وإتاحة الوصول.
+
+## 8) بنية المشروع والملفات (Next.js App Router)
+- app/layout.tsx: يضبط <html> dir/lang من الحالة، ويضمّن ThemeProvider.
+- components/
+  - Header.tsx: Logo + LanguageSwitcher + ThemeToggle + CTAs.
+  - Hero.tsx, KpiCards.tsx, FeatureGrid.tsx, SummaryPanel.tsx
+  - Dock.tsx (اختياري), GradientBG.tsx (خلفيات زينة), Card.tsx (مكوّن تصميمي عام)
+  - LanguageSwitcher.tsx, ThemeToggle.tsx (إلزاميان)
+- styles/globals.css: متغيرات CSS للألوان + طبقات Tailwind.
+- lib/i18n.ts (أو next-intl): موارد ar/en بعناوين الواجهة الافتراضية.
+
+## 9) عناصر واجهة محددة (وصف بصري دقيق)
+- Header: خلفية شفافة مع blur وBorder subtle، يتحول لسطح أبيض/داكن عند التمرير (useScroll).
+- Button Primary: rounded-2xl, px-5 py-2.5, font-medium, shadow, 
+  background: linear-gradient(135deg, #FF7A1A, #FFA94D); 
+  hover: translateY(-1px) + glow خفيف؛ active: translateY(0).
+- Cards: rounded-3xl, bg-white/70 dark:bg-neutral-900/50, 
+  border-white/20 dark:border-white/10, shadow-[0_10px_30px_-15px_rgba(0,0,0,0.25)].
+- Inputs: large, pill-shaped, focus ring برتقالي، label صغير وhelper واضح.
+- Badges/Chips: برتقالي باهت للـ progress (75% مثال)، أيقونات Lucide.
+
+## 10) ميّزات لا يجب فقدانها
+- تبديل اللغة (الهيدر) يُغيّر النصوص والاتجاه فورًا.
+- تبديل الثيم (الهيدر) يُغيّر class="dark" ويحفظ التفضيل.
+- دعم RTL/LTR كامل في كل المكوّنات، بدون انقلاب الأيقونات الدلالية (استخدم dir-aware CSS).
+
+## 11) Feature Flag للتصميم الجديد
+- اجعل كل الواجهة الجديدة خلف متغيّر `process.env.NEXT_PUBLIC_ORANGE_NEW_UI`.
+- إن كانت false: اعرض الواجهة القديمة كما هي.
+- إن كانت true: اعرض الواجهة الجديدة (هذه).
+
+## 12) مخرجات مطلوبة
+- كود كامل جاهز يعمل (Next.js + Tailwind + Framer Motion).
+- ملفات المكوّنات المذكورة، وأنماط Tailwind ممددة بالألوان أعلاه.
+- LanguageSwitcher + ThemeToggle مدموجان في Header (لا تحذفهما).
+- Seed نصوص عربية/إنجليزية افتراضية (hero/cta/cards).
+- README مختصر يشرح التشغيل، وإعداد ENV للـ Feature Flag.
+
+ابدأ الآن بإنشاء المكوّنات والصفحات، وامنحني ملفّات الإنتاج كاملة. 
+ركّز على الجمالية والحركة والجراديانت—حتى لو تطلب الأمر الكثير من الكود. 
+المنطق موجود مسبقًا؛ المهم واجهة عالمية مبهرة وسلسة.
