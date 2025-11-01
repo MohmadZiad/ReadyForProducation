@@ -10,24 +10,7 @@ import viteConfig from "../vite.config";
 const viteLogger = createLogger();
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-
-function findProjectRoot() {
-  const candidates = [
-    process.cwd(),
-    path.resolve(moduleDir, ".."),
-    path.resolve(moduleDir, "..", ".."),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, "package.json"))) {
-      return candidate;
-    }
-  }
-
-  return path.resolve(moduleDir, "..");
-}
-
-const projectRoot = findProjectRoot();
+const projectRoot = path.resolve(moduleDir, "..");
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
