@@ -318,6 +318,25 @@ export function useAssistant(options: UseAssistantOptions = {}) {
     [sessionId]
   );
 
+  const clearConversation = React.useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    messagesRef.current = [];
+    setMessages([]);
+    setBusy(false);
+    busyRef.current = false;
+    setIsStreaming(false);
+    setUsage({ turns: 0, tokenEstimate: 0 });
+    setRateLimit(null);
+    setLastError(null);
+    lastFailedRequestRef.current = null;
+    if (sessionId) {
+      logAnalyticsEvent(sessionId, "reset");
+    }
+  }, [sessionId]);
+
   return {
     messages,
     send,
@@ -332,5 +351,6 @@ export function useAssistant(options: UseAssistantOptions = {}) {
     lastError,
     clearError,
     registerCsat,
+    clearConversation,
   } as const;
 }

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const suggestionsByPage: Record<
   SuggestionChipsProps["page"],
@@ -58,7 +59,10 @@ export function SuggestionChips({ page, onPick, className }: SuggestionChipsProp
 
   return (
     <div
-      className={`flex gap-2 overflow-x-auto pb-1 ${className ?? ""}`.trim()}
+      className={cn(
+        "flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+        className
+      )}
       role="list"
       aria-label="Chat suggestions"
     >
@@ -68,7 +72,7 @@ export function SuggestionChips({ page, onPick, className }: SuggestionChipsProp
           type="button"
           variant="secondary"
           size="sm"
-          className="whitespace-nowrap rounded-full"
+          className="whitespace-nowrap rounded-full border border-orange-100/80 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-orange-700 shadow-sm transition hover:bg-orange-50 active:scale-[0.98] sm:px-3.5 sm:text-sm"
           onClick={() => onPick(text)}
         >
           {text}
