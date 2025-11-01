@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -14,6 +14,10 @@ import Assistant from "@/pages/Assistant";
 import Docs from "@/pages/Docs";
 import NotFound from "@/pages/not-found";
 import ChatWidget from "@/components/ChatWidget";
+import CommandPalette from "@/components/CommandPalette";
+import Quality from "@/pages/Quality";
+
+const experimentsEnabled = import.meta.env.VITE_CHAT_EXPERIMENTS !== "0";
 
 function Router() {
   return (
@@ -23,6 +27,7 @@ function Router() {
       <Route path="/pro-rata" component={ProRata} />
       <Route path="/assistant" component={Assistant} />
       <Route path="/docs" component={Docs} />
+      {experimentsEnabled && <Route path="/quality" component={Quality} />}
       <Route component={NotFound} />
     </Switch>
   );
@@ -33,11 +38,24 @@ function App() {
     const hasVisited = sessionStorage.getItem("orange-tool-visited");
     return !hasVisited;
   });
+  const [commandOpen, setCommandOpen] = useState(false);
 
   const handleSplashComplete = () => {
     sessionStorage.setItem("orange-tool-visited", "true");
     setShowSplash(false);
   };
+
+  useEffect(() => {
+    if (!experimentsEnabled) return;
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [experimentsEnabled]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -52,6 +70,12 @@ function App() {
               <>
                 <Router />
                 <ChatWidget />
+                {experimentsEnabled && (
+                  <CommandPalette
+                    open={commandOpen}
+                    onOpenChange={setCommandOpen}
+                  />
+                )}
               </>
             )}
             <Toaster />

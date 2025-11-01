@@ -8,6 +8,9 @@ import {
 } from "@shared/schema";
 import { chatHandler } from "./chat";
 
+const feedbackLog: Array<Record<string, unknown>> = [];
+const metricsLog: Array<Record<string, unknown>> = [];
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Calculator Routes
   app.get("/api/calculations", async (_req, res) => {
@@ -103,6 +106,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Real AI chat (OpenAI)
   app.post("/api/chat", express.json(), chatHandler);
+
+  app.post("/api/feedback", express.json(), (req, res) => {
+    feedbackLog.push({ ...req.body, receivedAt: Date.now() });
+    res.status(204).end();
+  });
+
+  app.post("/api/metrics", express.json(), (req, res) => {
+    metricsLog.push({ ...req.body, receivedAt: Date.now() });
+    res.status(204).end();
+  });
 
   // Document Routes (DB/Memory)
   app.get("/api/documents", async (req, res) => {
