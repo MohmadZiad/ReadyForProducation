@@ -5,8 +5,10 @@ export type DocItem = {
   tags: ("ar" | "en")[];
 };
 
+import { resolveApiUrl } from "./apiBase";
+
 async function fetchJson(url: string) {
-  const r = await fetch(url, { cache: "no-store" });
+  const r = await fetch(resolveApiUrl(url), { cache: "no-store" });
   if (!r.ok) throw new Error(`docs fetch failed: ${r.status}`);
   return r.json();
 }
