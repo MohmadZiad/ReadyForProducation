@@ -6,16 +6,19 @@ import { useLanguage } from "@/lib/language-context";
 import { MessageCircle, Send, Sparkles, Loader2 } from "lucide-react";
 import { useAssistant } from "@/lib/useAssistant";
 import { RichText } from "@/components/RichText";
+import { SuggestionChips } from "@/components/SuggestionChips";
 
 export default function Assistant() {
   const { t } = useLanguage();
   const [input, setInput] = useState("");
-  const { messages, send, busy } = useAssistant();
+  const { messages, send, busy, isStreaming } = useAssistant({
+    source: "assistant-page",
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, busy]);
+  }, [messages, busy, isStreaming]);
 
   const handleSend = () => {
     if (!input.trim() || busy) return;
@@ -24,7 +27,10 @@ export default function Assistant() {
     send(txt);
   };
 
-  const isThinking = busy;
+  const isThinking = busy || isStreaming;
+  const experimentsEnabled = import.meta.env.VITE_CHAT_EXPERIMENTS !== "0";
+  const showWelcomeSuggestions =
+    experimentsEnabled && messages.length === 0 && !isThinking;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-orange-50/30 dark:to-orange-950/10">
@@ -70,6 +76,14 @@ export default function Assistant() {
                     <p className="text-muted-foreground">
                       Ask me anything about calculations or how to use the tools
                     </p>
+                    {showWelcomeSuggestions && (
+                      <div className="mt-6">
+                        <SuggestionChips
+                          page="assistant"
+                          onPick={(text) => setInput(text)}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
