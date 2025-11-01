@@ -1,21 +1,27 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import GlassCard from "@/components/GlassCard";
 import { useLanguage } from "@/lib/language-context";
-import { MessageCircle, Send, Sparkles, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, MessageCircle, Send, Sparkles } from "lucide-react";
 import { useAssistant } from "@/lib/useAssistant";
 import { RichText } from "@/components/RichText";
+import { SuggestionChips } from "@/components/SuggestionChips";
+import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 export default function Assistant() {
   const { t } = useLanguage();
   const [input, setInput] = useState("");
-  const { messages, send, busy } = useAssistant();
+  const { messages, send, busy, isStreaming } = useAssistant({
+    source: "assistant-page",
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, busy]);
+  }, [messages, busy, isStreaming]);
 
   const handleSend = () => {
     if (!input.trim() || busy) return;
@@ -24,7 +30,98 @@ export default function Assistant() {
     send(txt);
   };
 
-  const isThinking = busy;
+  const isThinking = busy || isStreaming;
+  const experimentsEnabled = import.meta.env.VITE_CHAT_EXPERIMENTS !== "0";
+  const showWelcomeSuggestions =
+    experimentsEnabled && messages.length === 0 && !isThinking;
+
+  const quickActions = useMemo(
+    () =>
+      [
+        {
+          emoji: "💰",
+          title: "Calculate my salary adjustment",
+          description: "Open the calculator to explore salary scenarios instantly.",
+          onAction: () => navigate("/calculator"),
+        },
+        {
+          emoji: "📅",
+          title: "Check pro-rata leave days",
+          description: "Jump into the pro-rata tool for accurate leave entitlements.",
+          onAction: () => navigate("/pro-rata"),
+        },
+        {
+          emoji: "🧾",
+          title: "Generate a salary breakdown",
+          description: "Let the assistant draft a clear salary breakdown to share.",
+          onAction: () =>
+            setInput(
+              "Generate a detailed salary breakdown including allowances and deductions."
+            ),
+        },
+        {
+          emoji: "💬",
+          title: "Ask about HR policies",
+          description: "Review the docs or ask me to summarise any HR policy update.",
+          onAction: () =>
+            setInput("What are the latest HR policies on remote work and benefits?"),
+        },
+      ],
+    [navigate, setInput]
+  );
+
+  const lastUserMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].role === "user") {
+        return messages[i].content;
+      }
+    }
+    return null;
+  }, [messages]);
+
+  const contextSmartAction = useMemo(() => {
+    if (!experimentsEnabled || !lastUserMessage) return null;
+    const lower = lastUserMessage.toLowerCase();
+    const truncate = (text: string, max = 72) =>
+      text.length > max ? `${text.slice(0, max - 1)}…` : text;
+
+    if (/(salary|adjust|increase|calculator|pay|compensation)/.test(lower)) {
+      return {
+        title: "Continue with the salary tools",
+        description:
+          "Revisit the calculator and keep refining your compensation scenario.",
+        cta: "Open Calculator",
+        onAction: () => navigate("/calculator"),
+      };
+    }
+
+    if (/(pro[-\s]?rata|leave|vacation|time off)/.test(lower)) {
+      return {
+        title: "Need pro-rata support?",
+        description:
+          "Jump straight into the pro-rata calculator or ask for a quick recap.",
+        cta: "Open Pro-Rata",
+        onAction: () => navigate("/pro-rata"),
+      };
+    }
+
+    if (/(policy|policies|hr|document|guideline|docs)/.test(lower)) {
+      return {
+        title: "Browse the HR knowledge base",
+        description:
+          "Open the docs to confirm the details or let me summarise the highlights.",
+        cta: "View Docs",
+        onAction: () => navigate("/docs"),
+      };
+    }
+
+    return {
+      title: "Pick up where you left off",
+      description: `Continue your last question: “${truncate(lastUserMessage)}”`,
+      cta: "Prefill",
+      onAction: () => setInput(lastUserMessage),
+    };
+  }, [experimentsEnabled, lastUserMessage, navigate, setInput]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-orange-50/30 dark:to-orange-950/10">
@@ -64,12 +161,43 @@ export default function Assistant() {
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-800/20 flex items-center justify-center mx-auto mb-4">
                       <Sparkles className="w-10 h-10 text-orange-400" />
                     </div>
-                    <p className="text-lg font-medium mb-2">
-                      Start a conversation
+                    <p className="text-xl font-semibold mb-2 text-orange-600">
+                      👋 Welcome to Orange Assistant!
                     </p>
                     <p className="text-muted-foreground">
-                      Ask me anything about calculations or how to use the tools
+                      Ask me anything about salary calculations, benefits, or HR policies.<br className="hidden sm:block" /> I'm here to make your work easier.
                     </p>
+                    {showWelcomeSuggestions && (
+                      <div className="mt-6 space-y-6">
+                        <SuggestionChips
+                          page="assistant"
+                          onPick={(text) => setInput(text)}
+                        />
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {quickActions.map((card) => (
+                            <button
+                              key={card.title}
+                              type="button"
+                              onClick={card.onAction}
+                              className="group relative overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-white via-orange-50/80 to-orange-100/60 p-5 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+                            >
+                              <div className="flex items-start justify-between">
+                                <span className="text-2xl" aria-hidden>
+                                  {card.emoji}
+                                </span>
+                                <ArrowRight className="h-4 w-4 text-orange-400 transition-transform group-hover:translate-x-1" />
+                              </div>
+                              <h3 className="mt-3 text-base font-semibold text-orange-900">
+                                {card.title}
+                              </h3>
+                              <p className="mt-2 text-sm text-orange-700/80">
+                                {card.description}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -89,8 +217,8 @@ export default function Assistant() {
                     <div
                       className={`max-w-[80%] rounded-3xl px-5 py-3 ${
                         m.role === "user"
-                          ? "bg-gradient-to-r from-orange-500 to-orange-400 text-white"
-                          : "bg-card border border-card-border"
+                          ? "bg-gradient-to-r from-orange-500 to-orange-400 text-white shadow-lg shadow-orange-500/20"
+                          : "bg-gradient-to-br from-white to-orange-50/40 border border-orange-100 text-gray-900 shadow-sm"
                       }`}
                     >
                       <RichText text={m.content} className="text-sm" />
@@ -144,6 +272,28 @@ export default function Assistant() {
 
             {/* Input */}
             <div className="p-6 border-t border-border">
+              {experimentsEnabled && contextSmartAction && (
+                <div className="mb-4 rounded-2xl border border-orange-200/70 bg-orange-50/80 px-5 py-4 shadow-inner">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-orange-900">
+                        {contextSmartAction.title}
+                      </p>
+                      <p className="mt-1 text-sm text-orange-700/80">
+                        {contextSmartAction.description}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={contextSmartAction.onAction}
+                      className="bg-orange-500 text-white hover:bg-orange-600"
+                    >
+                      {contextSmartAction.cta}
+                    </Button>
+                  </div>
+                </div>
+              )}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
