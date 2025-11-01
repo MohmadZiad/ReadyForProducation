@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { Document } from "@shared/schema";
 import { fetchDocs, type DocItem } from "@/lib/docs";
+import { resolveApiUrl } from "@/lib/apiBase";
 
 const getCategoryIcon = (category: string) => {
   switch ((category || "").toLowerCase()) {
@@ -56,7 +57,7 @@ export default function Docs() {
       const url = searchQuery
         ? `/api/documents?q=${encodeURIComponent(searchQuery)}`
         : "/api/documents";
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await fetch(resolveApiUrl(url), { cache: "no-store" });
       if (!r.ok) throw new Error("Failed to fetch documents");
       return r.json();
     },

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { resolveApiUrl } from "./apiBase";
 
 export type ChatMsg = {
   role: "user" | "assistant" | "system";
@@ -22,7 +23,7 @@ export function useAssistant() {
     setMessages(next);
     setBusy(true);
     try {
-      const r = await fetch("/api/chat", {
+      const r = await fetch(resolveApiUrl("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: [styleSystem, ...next] }),
