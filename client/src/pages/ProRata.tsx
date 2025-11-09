@@ -400,7 +400,7 @@ type ComputedResult = ProResult & {
 };
 
 export default function ProRataPage() {
-  const { language, t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const { toast } = useToast();
 
   const lang: Lang = language === "ar" ? "ar" : "en";
@@ -555,6 +555,38 @@ export default function ProRataPage() {
     setOut({ ...preview, basePrice, addOnsTotal });
     setCopiedKey(null);
   }, [selectedProduct, activation, basePrice, preview, addOnsTotal, t, toast]);
+
+  const handleCopy = React.useCallback(
+    async (text: string, key: string) => {
+      if (!text) return;
+      const sanitized = cleanScript(text);
+      await navigator.clipboard.writeText(sanitized);
+      setCopiedKey(key);
+      toast({
+        title: lang === "ar" ? "تم النسخ" : "Copied",
+        description:
+          lang === "ar"
+            ? "تم نسخ المحتوى إلى الحافظة."
+            : "The content has been copied to the clipboard.",
+      });
+      if (copyTimeout.current) {
+        window.clearTimeout(copyTimeout.current);
+      }
+      copyTimeout.current = window.setTimeout(() => {
+        setCopiedKey(null);
+        copyTimeout.current = null;
+      }, 1800);
+    },
+    [lang, toast]
+  );
+
+  React.useEffect(() => {
+    return () => {
+      if (copyTimeout.current) {
+        window.clearTimeout(copyTimeout.current);
+      }
+    };
+  }, []);
 
   const handleCopy = React.useCallback(
     async (text: string, key: string) => {
