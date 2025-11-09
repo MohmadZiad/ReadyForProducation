@@ -183,7 +183,11 @@ function ChatBubble({
               onClick={onCopy}
               aria-label={title}
             >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copied ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
             </Button>
           )}
         </div>
@@ -231,7 +235,10 @@ function TimelineBar({
           {adjustedProPercent > 0 && (
             <div
               className="absolute inset-y-0 bg-gradient-to-r from-orange-400 to-orange-500"
-              style={{ left: `${prePercent}%`, width: `${adjustedProPercent}%` }}
+              style={{
+                left: `${prePercent}%`,
+                width: `${adjustedProPercent}%`,
+              }}
             />
           )}
         </div>
@@ -369,7 +376,9 @@ function createPdfFromJpeg(
   push(imageBytes);
   push("\nendstream\nendobj\n");
 
-  const content = `q\n${A4_WIDTH.toFixed(2)} 0 0 ${A4_HEIGHT.toFixed(2)} 0 0 cm\n/Im1 Do\nQ\n`;
+  const content = `q\n${A4_WIDTH.toFixed(2)} 0 0 ${A4_HEIGHT.toFixed(
+    2
+  )} 0 0 cm\n/Im1 Do\nQ\n`;
   beginObject(
     `5 0 obj<< /Length ${content.length} >>stream\n${content}endstream\nendobj\n`
   );
@@ -415,7 +424,6 @@ export default function ProRataPage() {
   const [callMode, setCallMode] = React.useState(false);
   const [out, setOut] = React.useState<ComputedResult | null>(null);
   const copyTimeout = React.useRef<number | null>(null);
-
 
   const configQuery = useQuery<PricingConfig>({
     queryKey: ["pro-rata-config"],
@@ -588,38 +596,6 @@ export default function ProRataPage() {
     };
   }, []);
 
-  const handleCopy = React.useCallback(
-    async (text: string, key: string) => {
-      if (!text) return;
-      const sanitized = cleanScript(text);
-      await navigator.clipboard.writeText(sanitized);
-      setCopiedKey(key);
-      toast({
-        title: lang === "ar" ? "تم النسخ" : "Copied",
-        description:
-          lang === "ar"
-            ? "تم نسخ المحتوى إلى الحافظة."
-            : "The content has been copied to the clipboard.",
-      });
-      if (copyTimeout.current) {
-        window.clearTimeout(copyTimeout.current);
-      }
-      copyTimeout.current = window.setTimeout(() => {
-        setCopiedKey(null);
-        copyTimeout.current = null;
-      }, 1800);
-    },
-    [lang, toast]
-  );
-
-  React.useEffect(() => {
-    return () => {
-      if (copyTimeout.current) {
-        window.clearTimeout(copyTimeout.current);
-      }
-    };
-  }, []);
-
   const summary = out ?? preview;
   const addOnsLabel = selectedAddonDetails.length
     ? selectedAddonDetails.map((addon) => addon.label[lang]).join(", ")
@@ -658,11 +634,8 @@ export default function ProRataPage() {
   }, [scriptBundle]);
 
   const currencyFormatter = React.useMemo(
-    () =>
-      (value: number) =>
-        lang === "ar"
-          ? `${fmt3(value)} JD`
-          : `JD ${fmt3(value)}`,
+    () => (value: number) =>
+      lang === "ar" ? `${fmt3(value)} JD` : `JD ${fmt3(value)}`,
     [lang]
   );
 
@@ -699,12 +672,15 @@ export default function ProRataPage() {
     const callModeText = cleanScript(bundle.callMode);
     const noteLine = cleanScript(bundle.allInclusiveNote);
 
-    const addOnLines = selectedAddonDetails.length === 0
-      ? [pdfStrings.addOnsEmpty]
-      : selectedAddonDetails.map(
-          (addon) =>
-            `• ${addon.label[lang]} — JD ${fmt3(addon.price)} (${addon.explain[lang]})`
-        );
+    const addOnLines =
+      selectedAddonDetails.length === 0
+        ? [pdfStrings.addOnsEmpty]
+        : selectedAddonDetails.map(
+            (addon) =>
+              `• ${addon.label[lang]} — JD ${fmt3(addon.price)} (${
+                addon.explain[lang]
+              })`
+          );
 
     const summaryLines = [
       `${pdfStrings.summary.product}: ${selectedProduct?.label[lang] ?? "—"}`,
@@ -725,10 +701,20 @@ export default function ProRataPage() {
     ];
 
     const amountLines: CardLine[] = [
-      { text: `${pdfStrings.amounts.monthly}: ${currencyFormatter(summary.monthlyNet)}` },
-      { text: `${pdfStrings.amounts.proRata}: ${currencyFormatter(summary.proAmountNet)}` },
       {
-        text: `${pdfStrings.amounts.firstInvoice}: ${currencyFormatter(summary.invoiceNet)}`,
+        text: `${pdfStrings.amounts.monthly}: ${currencyFormatter(
+          summary.monthlyNet
+        )}`,
+      },
+      {
+        text: `${pdfStrings.amounts.proRata}: ${currencyFormatter(
+          summary.proAmountNet
+        )}`,
+      },
+      {
+        text: `${pdfStrings.amounts.firstInvoice}: ${currencyFormatter(
+          summary.invoiceNet
+        )}`,
         badge: pdfStrings.amounts.badge,
       },
     ];
@@ -895,9 +881,15 @@ export default function ProRataPage() {
       column.y = column.y + cardHeight + 28;
     };
 
-    drawCard(pdfStrings.sections.summary, summaryLines.map((text) => ({ text })));
+    drawCard(
+      pdfStrings.sections.summary,
+      summaryLines.map((text) => ({ text }))
+    );
     drawCard(pdfStrings.sections.amounts, amountLines);
-    drawCard(pdfStrings.sections.addOns, addOnLines.map((text) => ({ text })));
+    drawCard(
+      pdfStrings.sections.addOns,
+      addOnLines.map((text) => ({ text }))
+    );
     drawCard(pdfStrings.sections.script, scriptLines);
     drawCard(pdfStrings.sections.notes, noteLines);
 
@@ -941,7 +933,9 @@ export default function ProRataPage() {
           <h1 className="text-4xl font-heading font-bold bg-gradient-to-r from-orange-500 to-orange-400 bg-clip-text text-transparent">
             {t("proRataTitle")}
           </h1>
-          <p className="text-muted-foreground mt-2">{t("proRataHeroDescription")}</p>
+          <p className="text-muted-foreground mt-2">
+            {t("proRataHeroDescription")}
+          </p>
         </motion.div>
 
         <motion.div {...fadeIn()} transition={{ delay: 0.1 }}>
@@ -950,7 +944,9 @@ export default function ProRataPage() {
               <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="opacity-70">{t("proRataProductLabel")}</span>
+                    <span className="opacity-70">
+                      {t("proRataProductLabel")}
+                    </span>
                     <select
                       value={productId ?? ""}
                       onChange={(e) => handleProductChange(e.target.value)}
@@ -967,7 +963,9 @@ export default function ProRataPage() {
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="opacity-70">{t("proRataBillAnchorLabel")}</span>
+                    <span className="opacity-70">
+                      {t("proRataBillAnchorLabel")}
+                    </span>
                     <input
                       value={anchor}
                       readOnly
@@ -976,7 +974,9 @@ export default function ProRataPage() {
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="opacity-70">{t("proRataActivationLabel")}</span>
+                    <span className="opacity-70">
+                      {t("proRataActivationLabel")}
+                    </span>
                     <input
                       type="date"
                       value={activation}
@@ -986,7 +986,9 @@ export default function ProRataPage() {
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="opacity-70">{t("proRataBasePriceLabel")}</span>
+                    <span className="opacity-70">
+                      {t("proRataBasePriceLabel")}
+                    </span>
                     <input
                       type="number"
                       min="0"
@@ -998,7 +1000,9 @@ export default function ProRataPage() {
                   </label>
 
                   <div className="flex flex-col gap-2 text-sm md:col-span-2">
-                    <span className="opacity-70">{t("proRataAddOnsLabel")}</span>
+                    <span className="opacity-70">
+                      {t("proRataAddOnsLabel")}
+                    </span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -1041,7 +1045,9 @@ export default function ProRataPage() {
                         >
                           <div className="px-3 py-1.5 rounded-full bg-orange-100/80 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200 shadow-sm text-sm font-medium flex items-center gap-1">
                             <span>{addon.label[lang]}</span>
-                            <span className="text-xs">· JD {fmt3(addon.price)}</span>
+                            <span className="text-xs">
+                              · JD {fmt3(addon.price)}
+                            </span>
                           </div>
                         </motion.div>
                       ))}
@@ -1064,7 +1070,9 @@ export default function ProRataPage() {
                   </Button>
 
                   <Button
-                    onClick={() => handleCopy(sanitizedScripts.combined, "script-main")}
+                    onClick={() =>
+                      handleCopy(sanitizedScripts.combined, "script-main")
+                    }
                     disabled={!scriptBundle}
                     variant="outline"
                     className="px-6 py-3 rounded-2xl border-2 border-orange-300/70 bg-white/70 dark:bg-neutral-900/40 hover:bg-white text-orange-600 hover:text-orange-700 disabled:opacity-50 transition-all flex items-center gap-2"
@@ -1111,7 +1119,9 @@ export default function ProRataPage() {
                       <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white/70 dark:bg-neutral-900/40 border px-4 py-3">
                         <div className="flex items-center gap-2 text-sm font-medium text-orange-600">
                           <FileText className="h-4 w-4" />
-                          {lang === "ar" ? "السكربت الجاهز" : "Customer-ready script"}
+                          {lang === "ar"
+                            ? "السكربت الجاهز"
+                            : "Customer-ready script"}
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
                           <div className="flex items-center gap-2 rounded-2xl border border-orange-200 bg-orange-50/60 px-4 py-2 text-xs font-medium text-orange-600 dark:border-orange-900/40 dark:bg-orange-900/20 dark:text-orange-200">
@@ -1119,7 +1129,9 @@ export default function ProRataPage() {
                             <span>{t("labels.callModeToggle")}</span>
                             <Switch
                               checked={callMode}
-                              onCheckedChange={(checked) => setCallMode(Boolean(checked))}
+                              onCheckedChange={(checked) =>
+                                setCallMode(Boolean(checked))
+                              }
                             />
                           </div>
                           <Button
@@ -1143,7 +1155,9 @@ export default function ProRataPage() {
                                 : "Agent · Call Mode"
                             }
                             content={sanitizedScripts.call}
-                            onCopy={() => handleCopy(sanitizedScripts.call, "call-mode")}
+                            onCopy={() =>
+                              handleCopy(sanitizedScripts.call, "call-mode")
+                            }
                             copied={copiedKey === "call-mode"}
                             lang={lang}
                           />
@@ -1153,7 +1167,10 @@ export default function ProRataPage() {
                           title={lang === "ar" ? "الموظف" : "Agent"}
                           content={sanitizedScripts.detailed}
                           onCopy={() =>
-                            handleCopy(sanitizedScripts.combined, "agent-detailed")
+                            handleCopy(
+                              sanitizedScripts.combined,
+                              "agent-detailed"
+                            )
                           }
                           copied={copiedKey === "agent-detailed"}
                           lang={lang}
@@ -1162,7 +1179,9 @@ export default function ProRataPage() {
                           role="customer"
                           title={lang === "ar" ? "العميل" : "Customer"}
                           content={sanitizedScripts.note}
-                          onCopy={() => handleCopy(sanitizedScripts.note, "customer-note")}
+                          onCopy={() =>
+                            handleCopy(sanitizedScripts.note, "customer-note")
+                          }
                           copied={copiedKey === "customer-note"}
                           lang={lang}
                         />
@@ -1172,7 +1191,9 @@ export default function ProRataPage() {
                         <Button
                           variant="outline"
                           className="rounded-2xl border-orange-200 px-4 py-2 text-sm flex items-center gap-2"
-                          onClick={() => handleCopy(sanitizedScripts.combined, "copy-script")}
+                          onClick={() =>
+                            handleCopy(sanitizedScripts.combined, "copy-script")
+                          }
                         >
                           <Copy className="h-4 w-4" />
                           {copiedKey === "copy-script"
@@ -1184,7 +1205,12 @@ export default function ProRataPage() {
                         <Button
                           variant="outline"
                           className="rounded-2xl border-orange-200 px-4 py-2 text-sm flex items-center gap-2"
-                          onClick={() => handleCopy(sanitizedScripts.combined, "copy-whatsapp")}
+                          onClick={() =>
+                            handleCopy(
+                              sanitizedScripts.combined,
+                              "copy-whatsapp"
+                            )
+                          }
                         >
                           <Share2 className="h-4 w-4" />
                           {copiedKey === "copy-whatsapp"
@@ -1228,19 +1254,38 @@ export default function ProRataPage() {
                 <div className="grid gap-3">
                   <InfoRow
                     label={t("proRataActivationLabel")}
-                    value={activation ? formatDateForLang(new Date(`${activation}T00:00:00Z`), lang) : "—"}
+                    value={
+                      activation
+                        ? formatDateForLang(
+                            new Date(`${activation}T00:00:00Z`),
+                            lang
+                          )
+                        : "—"
+                    }
                   />
                   <InfoRow
                     label={t("proRataBillCycleStart")}
-                    value={summary ? formatDateForLang(summary.cycleStartUTC, lang) : "—"}
+                    value={
+                      summary
+                        ? formatDateForLang(summary.cycleStartUTC, lang)
+                        : "—"
+                    }
                   />
                   <InfoRow
                     label={t("proRataBillCycleEnd")}
-                    value={summary ? formatDateForLang(summary.periodEndUTC, lang) : "—"}
+                    value={
+                      summary
+                        ? formatDateForLang(summary.periodEndUTC, lang)
+                        : "—"
+                    }
                   />
                   <InfoRow
                     label={t("proRataBillCycleNext")}
-                    value={summary ? formatDateForLang(summary.nextPeriodEndUTC, lang) : "—"}
+                    value={
+                      summary
+                        ? formatDateForLang(summary.nextPeriodEndUTC, lang)
+                        : "—"
+                    }
                   />
                 </div>
 
@@ -1302,11 +1347,18 @@ export default function ProRataPage() {
                   </div>
                   <div className="mt-3 space-y-2 text-sm">
                     {selectedAddonDetails.length === 0 && (
-                      <div className="text-muted-foreground">{t("proRataNoAddOns")}</div>
+                      <div className="text-muted-foreground">
+                        {t("proRataNoAddOns")}
+                      </div>
                     )}
                     {selectedAddonDetails.map((addon) => (
-                      <div key={addon.id} className="rounded-2xl bg-white/70 dark:bg-neutral-900/50 border px-3 py-2">
-                        <div className="font-medium text-sm">{addon.label[lang]}</div>
+                      <div
+                        key={addon.id}
+                        className="rounded-2xl bg-white/70 dark:bg-neutral-900/50 border px-3 py-2"
+                      >
+                        <div className="font-medium text-sm">
+                          {addon.label[lang]}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           JD {fmt3(addon.price)} · {addon.explain[lang]}
                         </div>
