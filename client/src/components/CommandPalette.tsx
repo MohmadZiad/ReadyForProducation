@@ -6,6 +6,7 @@ const navigationActions = [
   { label: "Open Home", path: "/" },
   { label: "Open Calculator", path: "/calculator" },
   { label: "Open Pro-Rata", path: "/pro-rata" },
+  { label: "Open Email Template", path: "/email-template" },
   { label: "Open Assistant", path: "/assistant" },
   { label: "Open Docs", path: "/docs" },
 ] as const;

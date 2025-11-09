@@ -122,6 +122,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).end();
   });
 
+  app.post("/api/polish", async (req, res) => {
+    try {
+      const { lang, notes, subject, body } = (req.body ?? {}) as {
+        lang?: string;
+        notes?: string;
+        subject?: string;
+        body?: string;
+      };
+
+      if (lang !== "ar" && lang !== "en") {
+        return res.status(400).json({ error: "invalid_language" });
+      }
+
+      const safeNotes = typeof notes === "string" ? notes : "";
+      const safeSubject = typeof subject === "string" ? subject : "";
+      const safeBody = typeof body === "string" ? body : "";
+
+      const key = process.env.OPENAI_API_KEY;
+      if (!key) {
+        return res.json({ subject: safeSubject, body: safeBody });
+      }
+
+      const tone =
+        lang === "ar"
+          ? "اكتب بالعربية الفصحى المهذّبة"
+          : "Write in polite and clear English";
+
+      const systemPrompt =
+        "You rewrite customer support emails for Orange Jordan. " +
+        "Always preserve numbers, account IDs, and factual details. " +
+        "Structure the body as greeting, short summary, bullet list, and closing. " +
+        "Respond strictly with JSON containing keys 'subject' and 'body'.";
+
+      const userPrompt = `${tone}.\nNOTES:\n${safeNotes}\nCURRENT_SUBJECT: ${safeSubject}\nCURRENT_BODY:\n${safeBody}`;
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          temperature: 0.2,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error?.message || "polish_failed");
+      }
+
+      const content = data?.choices?.[0]?.message?.content;
+      let polishedSubject = safeSubject;
+      let polishedBody = safeBody;
+
+      if (typeof content === "string") {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (typeof parsed.subject === "string") {
+              polishedSubject = parsed.subject;
+            }
+            if (typeof parsed.body === "string") {
+              polishedBody = parsed.body;
+            }
+          } catch (error) {
+            console.warn("polish parse error", error);
+          }
+        }
+      }
+
+      return res.json({ subject: polishedSubject, body: polishedBody });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message ?? "polish_failed" });
+    }
+  });
+
   // Document Routes (DB/Memory)
   app.get("/api/documents", async (req, res) => {
     try {

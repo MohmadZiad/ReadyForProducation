@@ -18,7 +18,6 @@ import {
   Info,
   CalendarDays,
   ListPlus,
-  Languages,
   Phone,
   MessageCircle,
   FileDown,
@@ -404,7 +403,7 @@ export default function ProRataPage() {
   const { language, setLanguage, t } = useLanguage();
   const { toast } = useToast();
 
-  const [lang, setLang] = React.useState<Lang>((language as Lang) ?? "ar");
+  const lang: Lang = language === "ar" ? "ar" : "en";
   const [productId, setProductId] = React.useState<string | null>(null);
   const [anchor, setAnchor] = React.useState<number>(15);
   const [basePrice, setBasePrice] = React.useState<number>(0);
@@ -417,7 +416,6 @@ export default function ProRataPage() {
   const [out, setOut] = React.useState<ComputedResult | null>(null);
   const copyTimeout = React.useRef<number | null>(null);
 
-  React.useEffect(() => setLang((language as Lang) ?? "ar"), [language]);
 
   const configQuery = useQuery<PricingConfig>({
     queryKey: ["pro-rata-config"],
@@ -558,11 +556,37 @@ export default function ProRataPage() {
     setCopiedKey(null);
   }, [selectedProduct, activation, basePrice, preview, addOnsTotal, t, toast]);
 
-  const toggleLanguage = () => {
-    const next = (language === "ar" ? "en" : "ar") as Lang;
-    setLanguage(next);
-    setLang(next);
-  };
+  const handleCopy = React.useCallback(
+    async (text: string, key: string) => {
+      if (!text) return;
+      const sanitized = cleanScript(text);
+      await navigator.clipboard.writeText(sanitized);
+      setCopiedKey(key);
+      toast({
+        title: lang === "ar" ? "تم النسخ" : "Copied",
+        description:
+          lang === "ar"
+            ? "تم نسخ المحتوى إلى الحافظة."
+            : "The content has been copied to the clipboard.",
+      });
+      if (copyTimeout.current) {
+        window.clearTimeout(copyTimeout.current);
+      }
+      copyTimeout.current = window.setTimeout(() => {
+        setCopiedKey(null);
+        copyTimeout.current = null;
+      }, 1800);
+    },
+    [lang, toast]
+  );
+
+  React.useEffect(() => {
+    return () => {
+      if (copyTimeout.current) {
+        window.clearTimeout(copyTimeout.current);
+      }
+    };
+  }, []);
 
   const handleCopy = React.useCallback(
     async (text: string, key: string) => {
@@ -656,101 +680,65 @@ export default function ProRataPage() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const pdfStrings = translations[lang].pdf;
     const quoteNumber = `OR-${Date.now().toString().slice(-6)}`;
     const now = new Date();
 
-    const englishBundle = buildScriptFromFullInvoice(out, "en", {
-      product: selectedProduct?.label.en ?? "",
+    const bundle = buildScriptFromFullInvoice(out, lang, {
+      product: selectedProduct?.label[lang] ?? "",
       anchorDay: anchor,
       addOns: selectedAddonDetails.map((addon) => ({
-        label: addon.label.en,
+        label: addon.label[lang],
         price: addon.price,
       })),
     });
 
-    const arabicBundle = buildScriptFromFullInvoice(out, "ar", {
-      product: selectedProduct?.label.ar ?? "",
-      anchorDay: anchor,
-      addOns: selectedAddonDetails.map((addon) => ({
-        label: addon.label.ar,
-        price: addon.price,
-      })),
-    });
-
-    const englishScriptDetailed = cleanScript(
-      [englishBundle.main, ...englishBundle.addOnLines].join("\n\n")
+    const scriptDetailed = cleanScript(
+      [bundle.main, ...bundle.addOnLines].join("\n\n")
     );
-    const arabicScriptDetailed = cleanScript(
-      [arabicBundle.main, ...arabicBundle.addOnLines].join("\n\n")
-    );
-    const englishCall = cleanScript(englishBundle.callMode);
-    const arabicCall = cleanScript(arabicBundle.callMode);
-    const englishNote = cleanScript(englishBundle.allInclusiveNote);
-    const arabicNote = cleanScript(arabicBundle.allInclusiveNote);
+    const callModeText = cleanScript(bundle.callMode);
+    const noteLine = cleanScript(bundle.allInclusiveNote);
 
-    const englishAddOnLines =
-      selectedAddonDetails.length === 0
-        ? [translations.en.proRataNoAddOns]
-        : selectedAddonDetails.map(
-            (addon) =>
-              `• ${addon.label.en} — JD ${fmt3(addon.price)} (${addon.explain.en})`
-          );
+    const addOnLines = selectedAddonDetails.length === 0
+      ? [pdfStrings.addOnsEmpty]
+      : selectedAddonDetails.map(
+          (addon) =>
+            `• ${addon.label[lang]} — JD ${fmt3(addon.price)} (${addon.explain[lang]})`
+        );
 
-    const arabicAddOnLines =
-      selectedAddonDetails.length === 0
-        ? [translations.ar.proRataNoAddOns]
-        : selectedAddonDetails.map(
-            (addon) =>
-              `• ${addon.label.ar} — JD ${fmt3(addon.price)} (${addon.explain.ar})`
-          );
-
-    const englishSummaryLines = [
-      `Product: ${selectedProduct?.label.en ?? "—"}`,
-      `Activation: ${formatDateForLang(summary.activationUTC, "en")}`,
-      `Anchor day: ${anchor}`,
-      `Period: ${formatDateForLang(summary.cycleStartUTC, "en")} → ${formatDateForLang(
-        summary.periodEndUTC,
-        "en"
+    const summaryLines = [
+      `${pdfStrings.summary.product}: ${selectedProduct?.label[lang] ?? "—"}`,
+      `${pdfStrings.summary.activation}: ${formatDateForLang(
+        summary.activationUTC,
+        lang
       )}`,
-      `Ratio: ${(summary.ratio * 100).toFixed(2)}%`,
-      `Add-ons: ${englishBundle.addOnsList}`,
-    ];
-
-    const arabicSummaryLines = [
-      `المنتج: ${selectedProduct?.label.ar ?? "—"}`,
-      `التفعيل: ${formatDateForLang(summary.activationUTC, "ar")}`,
-      `يوم التثبيت: ${anchor}`,
-      `الفترة: ${formatDateForLang(summary.cycleStartUTC, "ar")} ← ${formatDateForLang(
+      `${pdfStrings.summary.anchor}: ${anchor}`,
+      `${pdfStrings.summary.period}: ${formatDateForLang(
+        summary.cycleStartUTC,
+        lang
+      )} ${lang === "ar" ? "←" : "→"} ${formatDateForLang(
         summary.periodEndUTC,
-        "ar"
+        lang
       )}`,
-      `النسبة: ${(summary.ratio * 100).toFixed(2)}%`,
-      `الإضافات: ${arabicBundle.addOnsList}`,
+      `${pdfStrings.summary.ratio}: ${(summary.ratio * 100).toFixed(2)}%`,
+      `${pdfStrings.summary.addOns}: ${bundle.addOnsList}`,
     ];
 
-    const englishAmountLines = [
-      `Monthly net: JD ${fmt3(summary.monthlyNet)}`,
-      `Pro-Rata: JD ${fmt3(summary.proAmountNet)}`,
-      `First invoice (all-inclusive): JD ${fmt3(summary.invoiceNet)}`,
+    const amountLines: CardLine[] = [
+      { text: `${pdfStrings.amounts.monthly}: ${currencyFormatter(summary.monthlyNet)}` },
+      { text: `${pdfStrings.amounts.proRata}: ${currencyFormatter(summary.proAmountNet)}` },
+      {
+        text: `${pdfStrings.amounts.firstInvoice}: ${currencyFormatter(summary.invoiceNet)}`,
+        badge: pdfStrings.amounts.badge,
+      },
     ];
 
-    const arabicAmountLines = [
-      `الصافي الشهري: JD ${fmt3(summary.monthlyNet)}`,
-      `قيمة النسبة: JD ${fmt3(summary.proAmountNet)}`,
-      `الدفعة الأولى (شامل): JD ${fmt3(summary.invoiceNet)}`,
+    const scriptLines = [
+      { text: scriptDetailed },
+      { text: `${pdfStrings.script.callMode}: ${callModeText}` },
     ];
 
-    const englishScriptLines = [
-      englishScriptDetailed,
-      `Call mode: ${englishCall}`,
-    ];
-    const arabicScriptLines = [
-      arabicScriptDetailed,
-      `وضع المكالمات: ${arabicCall}`,
-    ];
-
-    const englishNoteLines = [englishNote];
-    const arabicNoteLines = [arabicNote];
+    const noteLines = [{ text: noteLine }];
 
     ctx.save();
     ctx.fillStyle = "#fefbf6";
@@ -769,134 +757,149 @@ export default function ProRataPage() {
     ctx.fillText("Orange", 80, 60);
 
     ctx.font = "24px 'Segoe UI', sans-serif";
-    ctx.fillText("Pro-Rata & First Invoice Breakdown", 80, 130);
+    ctx.fillText(pdfStrings.headerTitle, 80, 130);
 
     ctx.textAlign = "right";
     ctx.font = "18px 'Segoe UI', sans-serif";
-    ctx.fillText(`Created: ${formatDateForLang(now, "en")}`, canvas.width - 80, 80);
-    ctx.fillText(`Quote #: ${quoteNumber}`, canvas.width - 80, 110);
+    ctx.fillText(
+      `${pdfStrings.createdLabel}: ${formatDateForLang(now, lang)}`,
+      canvas.width - 80,
+      80
+    );
+    ctx.fillText(
+      `${pdfStrings.quoteLabel}: ${quoteNumber}`,
+      canvas.width - 80,
+      110
+    );
 
     ctx.restore();
 
-    const columnGap = 40;
-    const columnWidth = (canvas.width - 160 - columnGap) / 2;
-    const leftColumn = {
+    type CardLine = { text: string; badge?: string };
+
+    const column = {
       x: 80,
-      width: columnWidth,
+      width: canvas.width - 160,
       y: 260,
-      align: "left" as CanvasTextAlign,
-      direction: "ltr" as CanvasDirection,
-    };
-    const rightColumn = {
-      x: 80 + columnWidth + columnGap,
-      width: columnWidth,
-      y: 260,
-      align: "right" as CanvasTextAlign,
-      direction: "rtl" as CanvasDirection,
+      align: (lang === "ar" ? "right" : "left") as CanvasTextAlign,
+      direction: (lang === "ar" ? "rtl" : "ltr") as CanvasDirection,
     };
 
-    const alignColumns = () => {
-      const next = Math.max(leftColumn.y, rightColumn.y) + 24;
-      leftColumn.y = next;
-      rightColumn.y = next;
-    };
-
-    const drawCard = (
-      column: {
-        x: number;
-        width: number;
-        y: number;
-        align: CanvasTextAlign;
-        direction: CanvasDirection;
-      },
-      title: string,
-      lines: string[]
-    ) => {
+    const drawCard = (title: string, lines: CardLine[]) => {
+      if (!lines.length) return;
       ctx.save();
       ctx.textBaseline = "top";
       ctx.direction = column.direction;
       ctx.textAlign = column.align;
 
-      ctx.font = "16px 'Segoe UI', 'Cairo', sans-serif";
-      const paddingX = 28;
-      const paddingY = 32;
-      const lineHeight = 26;
+      const paddingX = 32;
+      const paddingY = 36;
+      const lineHeight = 28;
+      const innerWidth = column.width - paddingX * 2;
       const textX =
         column.align === "left"
           ? column.x + paddingX
           : column.x + column.width - paddingX;
 
-      const wrappedLines: string[] = [];
-      lines.forEach((line, index) => {
-        const parts = wrapText(
-          ctx,
-          line,
-          column.width - paddingX * 2
-        );
-        wrappedLines.push(...parts);
-        if (index < lines.length - 1) {
-          wrappedLines.push("");
-        }
-      });
+      const lineData = lines.map((entry) => ({
+        ...entry,
+        parts: wrapText(ctx, entry.text, innerWidth),
+      }));
 
-      const contentHeight = wrappedLines.reduce(
-        (acc, line) => acc + (line ? lineHeight : lineHeight * 0.5),
-        0
-      );
+      const contentHeight = lineData.reduce((acc, entry, index) => {
+        const blockHeight = entry.parts.length * lineHeight;
+        const spacing = index < lineData.length - 1 ? lineHeight * 0.5 : 0;
+        return acc + blockHeight + spacing;
+      }, 0);
+
       const cardHeight = paddingY * 2 + 24 + contentHeight;
 
-      drawRoundedRect(
-        ctx,
-        column.x,
-        column.y,
-        column.width,
-        cardHeight,
-        24
-      );
+      drawRoundedRect(ctx, column.x, column.y, column.width, cardHeight, 26);
       ctx.fillStyle = "rgba(255,255,255,0.96)";
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,130,20,0.25)";
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "rgba(255,130,20,0.18)";
+      ctx.lineWidth = 1.4;
       ctx.stroke();
 
       ctx.fillStyle = "#ff7f11";
-      ctx.font = "bold 20px 'Segoe UI', 'Cairo', sans-serif";
-      ctx.fillText(title, textX, column.y + paddingY - 6);
+      ctx.font = "bold 22px 'Segoe UI', 'Cairo', sans-serif";
+      ctx.fillText(title, textX, column.y + paddingY - 8);
 
       ctx.fillStyle = "#2b2b2b";
       ctx.font = "16px 'Segoe UI', 'Cairo', sans-serif";
-      let textY = column.y + paddingY + 24;
-      wrappedLines.forEach((line) => {
-        if (!line) {
-          textY += lineHeight * 0.5;
-          return;
+      let textY = column.y + paddingY + 28;
+
+      lineData.forEach((entry, index) => {
+        const blockHeight = entry.parts.length * lineHeight;
+        if (entry.badge) {
+          ctx.save();
+          const highlightX =
+            column.align === "left"
+              ? column.x + paddingX
+              : column.x + column.width - paddingX - innerWidth;
+          const highlightY = textY - 14;
+          const highlightHeight = blockHeight + 28;
+          drawRoundedRect(
+            ctx,
+            highlightX,
+            highlightY,
+            innerWidth,
+            highlightHeight,
+            18
+          );
+          ctx.fillStyle = "rgba(255,158,66,0.15)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255,158,66,0.35)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          const badgeText = entry.badge;
+          const badgePaddingX = 16;
+          const badgeHeight = 26;
+          ctx.font = "12px 'Segoe UI', 'Cairo', sans-serif";
+          const badgeWidth =
+            ctx.measureText(badgeText).width + badgePaddingX * 2;
+          const badgeX =
+            column.align === "left"
+              ? highlightX + innerWidth - badgeWidth - 14
+              : highlightX + 14;
+          const badgeY = highlightY + 10;
+          drawRoundedRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, 10);
+          ctx.fillStyle = "#ff7f11";
+          ctx.fill();
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(
+            badgeText,
+            badgeX + badgeWidth / 2,
+            badgeY + badgeHeight / 2
+          );
+          ctx.restore();
+          ctx.textBaseline = "top";
+          ctx.direction = column.direction;
+          ctx.textAlign = column.align;
+          ctx.font = "16px 'Segoe UI', 'Cairo', sans-serif";
+          ctx.fillStyle = "#2b2b2b";
         }
-        ctx.fillText(line, textX, textY);
-        textY += lineHeight;
+
+        entry.parts.forEach((part) => {
+          ctx.fillText(part, textX, textY);
+          textY += lineHeight;
+        });
+        if (index < lineData.length - 1) {
+          textY += lineHeight * 0.5;
+        }
       });
 
-      column.y = textY + paddingY;
       ctx.restore();
+      column.y = column.y + cardHeight + 28;
     };
 
-    drawCard(leftColumn, "Summary", englishSummaryLines);
-    drawCard(rightColumn, "ملخص", arabicSummaryLines);
-    alignColumns();
-
-    drawCard(leftColumn, "Amounts", englishAmountLines);
-    drawCard(rightColumn, "المبالغ", arabicAmountLines);
-    alignColumns();
-
-    drawCard(leftColumn, "Add-ons", englishAddOnLines);
-    drawCard(rightColumn, "الإضافات", arabicAddOnLines);
-    alignColumns();
-
-    drawCard(leftColumn, "Customer-friendly script", englishScriptLines);
-    drawCard(rightColumn, "نص العميل", arabicScriptLines);
-    alignColumns();
-
-    drawCard(leftColumn, "Notes", englishNoteLines);
-    drawCard(rightColumn, "ملاحظات", arabicNoteLines);
+    drawCard(pdfStrings.sections.summary, summaryLines.map((text) => ({ text })));
+    drawCard(pdfStrings.sections.amounts, amountLines);
+    drawCard(pdfStrings.sections.addOns, addOnLines.map((text) => ({ text })));
+    drawCard(pdfStrings.sections.script, scriptLines);
+    drawCard(pdfStrings.sections.notes, noteLines);
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
     const base64 = dataUrl.split(",")[1];
@@ -917,6 +920,8 @@ export default function ProRataPage() {
     selectedProduct,
     selectedAddonDetails,
     anchor,
+    lang,
+    currencyFormatter,
   ]);
 
   return (
@@ -1109,14 +1114,6 @@ export default function ProRataPage() {
                           {lang === "ar" ? "السكربت الجاهز" : "Customer-ready script"}
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
-                          <Button
-                            variant="outline"
-                            onClick={toggleLanguage}
-                            className="flex items-center gap-2 rounded-2xl border-orange-200 px-4 py-2 text-sm"
-                          >
-                            <Languages className="h-4 w-4" />
-                            {t("labels.languageToggle")}
-                          </Button>
                           <div className="flex items-center gap-2 rounded-2xl border border-orange-200 bg-orange-50/60 px-4 py-2 text-xs font-medium text-orange-600 dark:border-orange-900/40 dark:bg-orange-900/20 dark:text-orange-200">
                             <Phone className="h-4 w-4" />
                             <span>{t("labels.callModeToggle")}</span>

@@ -38,6 +38,7 @@ export const translations = {
     proRata: "Pro-Rata",
     assistant: "Assistant",
     docs: "Documentation",
+    emailTemplateNav: "Email Template",
     
     // Calculator
     calcTitle: "Advanced Calculator",
@@ -141,6 +142,73 @@ export const translations = {
       exportPDF: "Export PDF",
     },
 
+    emailTemplate: {
+      title: "Email Template",
+      subtitle: "Transform notes into a polished support email instantly.",
+      notesLabel: "Notes for the email",
+      notesPlaceholder:
+        "Type the customer's context, account references, and numbers here...",
+      languageLabel: "Email language",
+      previewTitle: "Preview",
+      subjectLabel: "Subject",
+      bodyLabel: "Body",
+      copySubject: "Copy Subject",
+      copyBody: "Copy Body",
+      openGmail: "Open in Gmail",
+      openEmailApp: "Open in Email App",
+      polishWithAI: "Polish with AI",
+      polishing: "Polishing…",
+      polishSuccess: "Improved with AI",
+      polishError: "We couldn't polish the email right now.",
+      privacyNote:
+        "Please avoid sharing sensitive personal data. Content is processed securely.",
+      aiTooltip: "Enhance tone while keeping numbers intact.",
+      copySuccess: "Copied to clipboard.",
+      copyError: "Unable to copy content.",
+      template: {
+        defaultSubject: "Follow-up regarding {{topic}}",
+        defaultTopicFallback: "the recent request",
+        greetingCompany: "Dear {{company}},",
+        greetingGeneric: "Dear Support Team,",
+        intro: "Please find below the context for this request:",
+        detailsHeading: "Key details:",
+        noDetailsFallback: "No additional notes were provided.",
+        closing: "Thank you for your support,\nCustomer Name",
+        bulletPrefix: "• ",
+      },
+    },
+
+    pdf: {
+      headerTitle: "Pro-Rata & First Invoice Breakdown",
+      createdLabel: "Created",
+      quoteLabel: "Quote #",
+      sections: {
+        summary: "Summary",
+        amounts: "Amounts",
+        addOns: "Add-ons",
+        script: "Customer-friendly script",
+        notes: "Notes",
+      },
+      summary: {
+        product: "Product",
+        activation: "Activation",
+        anchor: "Anchor day",
+        period: "Period",
+        ratio: "Ratio",
+        addOns: "Add-ons",
+      },
+      amounts: {
+        monthly: "Monthly net",
+        proRata: "Pro-Rata",
+        firstInvoice: "First invoice",
+        badge: "All-inclusive",
+      },
+      script: {
+        callMode: "Call mode",
+      },
+      addOnsEmpty: "No add-ons selected",
+    },
+
     script: {
       main:
         "I want to clarify that **the first invoice is {{firstInvoice}}** for {{product}}. It already includes a **proration amount of {{proRata}}** covering the period from {{periodStart}} to {{periodEnd}}, plus the **regular monthly subscription {{monthlyNet}}**. Activation on {{activationDate}} creates a ratio of {{ratio}}, the billing anchor is the {{anchorDay}} of each month, and the included add-ons are: {{addOnsList}}.",
@@ -191,6 +259,7 @@ export const translations = {
     proRata: "برو راتا",
     assistant: "المساعد",
     docs: "التوثيق",
+    emailTemplateNav: "قالب البريد",
     
     // Calculator
     calcTitle: "الحاسبة المتقدمة",
@@ -292,6 +361,72 @@ export const translations = {
       languageToggle: "لغة العميل",
       callModeToggle: "وضع المكالمات",
       exportPDF: "تصدير PDF",
+    },
+
+    emailTemplate: {
+      title: "قالب البريد الإلكتروني",
+      subtitle: "حوّل الملاحظات إلى رسالة بريد مهذّبة فوراً.",
+      notesLabel: "ملاحظات حرة",
+      notesPlaceholder:
+        "اكتب ملخص الحالة، الأرقام، وأي تفاصيل مهمة هنا...",
+      languageLabel: "لغة البريد",
+      previewTitle: "المعاينة",
+      subjectLabel: "العنوان",
+      bodyLabel: "المحتوى",
+      copySubject: "نسخ العنوان",
+      copyBody: "نسخ المحتوى",
+      openGmail: "فتح في Gmail",
+      openEmailApp: "فتح في تطبيق البريد",
+      polishWithAI: "تحسين بالذكاء الاصطناعي",
+      polishing: "جاري التحسين...",
+      polishSuccess: "تمت إعادة الصياغة",
+      polishError: "تعذّر تحسين الصياغة حالياً.",
+      privacyNote: "يرجى عدم مشاركة بيانات شخصية حساسة. تتم معالجة المحتوى بأمان.",
+      aiTooltip: "تحسين النبرة مع الحفاظ على الأرقام.",
+      copySuccess: "تم النسخ إلى الحافظة.",
+      copyError: "تعذّر نسخ المحتوى.",
+      template: {
+        defaultSubject: "متابعة بخصوص: {{topic}}",
+        defaultTopicFallback: "الطلب الأخير",
+        greetingCompany: "مرحباً فريق {{company}} المحترم،",
+        greetingGeneric: "مرحباً فريق الدعم المحترم،",
+        intro: "أشارككم أدناه ملخص الطلب:",
+        detailsHeading: "التفاصيل الرئيسية:",
+        noDetailsFallback: "لا توجد تفاصيل إضافية مذكورة في الملاحظات.",
+        closing: "شاكر تعاونكم الدائم،\nاسم العميل",
+        bulletPrefix: "• ",
+      },
+    },
+
+    pdf: {
+      headerTitle: "تفصيل الفاتورة الأولى والنسبة",
+      createdLabel: "تاريخ الإنشاء",
+      quoteLabel: "رقم العرض",
+      sections: {
+        summary: "الملخص",
+        amounts: "المبالغ",
+        addOns: "الإضافات",
+        script: "نص العميل",
+        notes: "ملاحظات",
+      },
+      summary: {
+        product: "المنتج",
+        activation: "التفعيل",
+        anchor: "يوم التثبيت",
+        period: "الفترة",
+        ratio: "النسبة",
+        addOns: "الإضافات",
+      },
+      amounts: {
+        monthly: "الصافي الشهري",
+        proRata: "قيمة النسبة",
+        firstInvoice: "الدفعة الأولى",
+        badge: "شامل",
+      },
+      script: {
+        callMode: "وضع المكالمات",
+      },
+      addOnsEmpty: "لا توجد إضافات",
     },
 
     script: {

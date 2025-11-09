@@ -12,6 +12,7 @@ import Calculator from "@/pages/Calculator";
 import ProRata from "@/pages/ProRata";
 import Assistant from "@/pages/Assistant";
 import Docs from "@/pages/Docs";
+import EmailTemplate from "@/pages/EmailTemplate";
 import NotFound from "@/pages/not-found";
 import ChatWidget from "@/components/ChatWidget";
 import CommandPalette from "@/components/CommandPalette";
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/calculator" component={Calculator} />
       <Route path="/pro-rata" component={ProRata} />
+      <Route path="/email-template" component={EmailTemplate} />
       <Route path="/assistant" component={Assistant} />
       <Route path="/docs" component={Docs} />
       {experimentsEnabled && <Route path="/quality" component={Quality} />}

@@ -26,6 +26,7 @@ export default function Header() {
     { path: "/", label: t("home") },
     { path: "/calculator", label: t("calculator") },
     { path: "/pro-rata", label: t("proRata") },
+    { path: "/email-template", label: t("emailTemplateNav") },
     { path: "/assistant", label: t("assistant") },
     { path: "/docs", label: t("docs") },
   ];
