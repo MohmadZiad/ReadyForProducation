@@ -1,8 +1,8 @@
 // client/src/lib/proRata.ts
 // ============================================================================
-// Minimal pro-rata (نسبة وتناسب) logic using full invoice for THIS month.
-// Inputs: activation date, full invoice (net), anchor day (default 15), lang
-// Outputs: monthly (usual), proAmount (for this month), nice script (AR/EN)
+// Minimal pro-rata (نسبة وتناسب) logic using configurable monthly values.
+// Inputs: activation date, anchor day (default 15), and monthly net amount
+// Outputs: monthly (usual), proAmount (for this month), period summary
 // ============================================================================
 
 export type Lang = "ar" | "en";
@@ -65,28 +65,58 @@ function firstAnchorAfterActivation(act: Date, anchorDay = 15): Date {
     ? addMonthsUTC(thisAnchor, 1, anchorDay)
     : thisAnchor;
 }
+
 export function fmt3(n: number): string {
   return n.toFixed(3);
 }
 
-export interface ProResult {
-  invoiceNet: number; // قيمة فاتورة هذا الشهر (صافي)
-  monthlyNet: number; // الاشتراك الشهري المعتاد (صافي)
-  proAmountNet: number; // قيمة النسبة والتناسب لهذا الشهر
+export interface PeriodResult {
   ratio: number; // proDays / cycleDays
   proDays: number; // أيام النسبة والتناسب
   cycleDays: number; // أيام الدورة
   activationUTC: Date;
   periodStartUTC: Date; // = activation
+  cycleStartUTC: Date; // بداية دورة الفوترة
   periodEndUTC: Date; // = first anchor after activation
   nextPeriodEndUTC: Date; // = periodEnd + 1 cycle
 }
 
-/**
- * computeFromFullInvoice
- * يأخذ قيمة الفاتورة الحالية (شاملة النسبة والتناسب) + تاريخ التفعيل
- * ويحسِب الاشتراك الشهري المعتاد وقيمة النسبة والتناسب.
- */
+export interface ProResult extends PeriodResult {
+  invoiceNet: number; // قيمة فاتورة هذا الشهر (صافي)
+  monthlyNet: number; // الاشتراك الشهري المعتاد (صافي)
+  proAmountNet: number; // قيمة النسبة والتناسب لهذا الشهر
+}
+
+function computePeriod(
+  activation: string | Date,
+  anchorDay = 15
+): PeriodResult {
+  const act =
+    activation instanceof Date
+      ? toUtcMidnight(activation)
+      : toUtcMidnight(new Date(activation + "T00:00:00Z"));
+
+  const end = firstAnchorAfterActivation(act, anchorDay);
+  const cycleStart = addMonthsUTC(end, -1, anchorDay);
+
+  const cycleDays = Math.max(0, daysBetween(cycleStart, end));
+  const proDays = Math.max(0, Math.min(cycleDays, daysBetween(act, end)));
+  const ratio = cycleDays === 0 ? 0 : proDays / cycleDays;
+
+  const nextEnd = addMonthsUTC(end, 1, anchorDay);
+
+  return {
+    ratio,
+    proDays,
+    cycleDays,
+    activationUTC: act,
+    periodStartUTC: act,
+    cycleStartUTC: cycleStart,
+    periodEndUTC: end,
+    nextPeriodEndUTC: nextEnd,
+  };
+}
+
 export function computeFromFullInvoice(
   invoiceNet: number,
   activation: string | Date,
@@ -95,36 +125,50 @@ export function computeFromFullInvoice(
   if (!Number.isFinite(invoiceNet) || invoiceNet <= 0) {
     throw new Error("invoiceNet must be a positive number");
   }
-  const act =
-    activation instanceof Date
-      ? toUtcMidnight(activation)
-      : toUtcMidnight(new Date(activation + "T00:00:00Z"));
 
-  const end = firstAnchorAfterActivation(act, anchorDay);
-  const startCycle = addMonthsUTC(end, -1, anchorDay);
-
-  const cycleDays = Math.max(0, daysBetween(startCycle, end));
-  const proDays = Math.max(0, Math.min(cycleDays, daysBetween(act, end)));
-  const ratio = cycleDays === 0 ? 0 : proDays / cycleDays;
+  const period = computePeriod(activation, anchorDay);
 
   // invoice = monthly * (1 + ratio) => monthly = invoice / (1 + ratio)
-  const monthlyNet = invoiceNet / (1 + ratio);
-  const proAmountNet = monthlyNet * ratio;
-
-  const nextEnd = addMonthsUTC(end, 1, anchorDay);
+  const monthlyNet = invoiceNet / (1 + period.ratio);
+  const proAmountNet = monthlyNet * period.ratio;
 
   return {
+    ...period,
     invoiceNet,
     monthlyNet,
     proAmountNet,
-    ratio,
-    proDays,
-    cycleDays,
-    activationUTC: act,
-    periodStartUTC: act,
-    periodEndUTC: end,
-    nextPeriodEndUTC: nextEnd,
   };
+}
+
+export function computeFromMonthly(
+  monthlyNet: number,
+  activation: string | Date,
+  anchorDay = 15
+): ProResult {
+  if (!Number.isFinite(monthlyNet) || monthlyNet < 0) {
+    throw new Error("monthlyNet must be a non-negative number");
+  }
+
+  const period = computePeriod(activation, anchorDay);
+  const proAmountNet = monthlyNet * period.ratio;
+  const invoiceNet = monthlyNet + proAmountNet;
+
+  return {
+    ...period,
+    invoiceNet,
+    monthlyNet,
+    proAmountNet,
+  };
+}
+
+export function formatDateForLang(date: Date, lang: Lang): string {
+  const locale = lang === "ar" ? "ar-JO" : "en-GB";
+  return date.toLocaleDateString(locale, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "UTC",
+  });
 }
 
 /** نص جاهز للنسخ (AR/EN) */

@@ -6,6 +6,7 @@ import {
   insertProRataSchema,
   insertChatMessageSchema,
 } from "@shared/schema";
+import { products, addons } from "@shared/config";
 import { chatHandler } from "./chat";
 
 const feedbackLog: Array<Record<string, unknown>> = [];
@@ -55,6 +56,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch {
       res.status(500).json({ error: "Failed to fetch pro-rata calculations" });
     }
+  });
+
+  app.get("/api/pro-rata/config", (_req, res) => {
+    res.json({ products, addons });
   });
 
   app.get("/api/pro-rata/:id", async (req, res) => {
