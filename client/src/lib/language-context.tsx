@@ -4,7 +4,7 @@ import { translations, type Language } from "./i18n";
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: keyof typeof translations.en) => string;
+  t: (key: string) => string;
   dir: "ltr" | "rtl";
 }
 
@@ -28,8 +28,21 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLanguageState(lang);
   };
 
-  const t = (key: keyof typeof translations.en): string => {
-    return translations[language][key] || translations.en[key];
+  const resolveKey = (lang: Language, key: string): string | undefined => {
+    const segments = key.split(".");
+    let value: unknown = translations[lang];
+    for (const segment of segments) {
+      if (value && typeof value === "object" && segment in (value as Record<string, unknown>)) {
+        value = (value as Record<string, unknown>)[segment];
+      } else {
+        return undefined;
+      }
+    }
+    return typeof value === "string" ? value : undefined;
+  };
+
+  const t = (key: string): string => {
+    return resolveKey(language, key) ?? resolveKey("en", key) ?? key;
   };
 
   return (

@@ -131,6 +131,26 @@ export const translations = {
     proRataCopyScript: "Copy script",
     proRataCopied: "Copied",
     proRataCalculateAction: "Calculate",
+
+    labels: {
+      copyScript: "Copy Script",
+      copyWhatsApp: "Copy WhatsApp",
+      copyEmail: "Copy Email",
+      languageToggle: "Customer Language",
+      callModeToggle: "Call Mode",
+      exportPDF: "Export PDF",
+    },
+
+    script: {
+      main:
+        "I want to clarify that **the first invoice is {{firstInvoice}}** for {{product}}. It already includes a **proration amount of {{proRata}}** covering the period from {{periodStart}} to {{periodEnd}}, plus the **regular monthly subscription {{monthlyNet}}**. Activation on {{activationDate}} creates a ratio of {{ratio}}, the billing anchor is the {{anchorDay}} of each month, and the included add-ons are: {{addOnsList}}.",
+      callMode:
+        "Billing anchor is the {{anchorDay}} each month. First bill = pro-rata from {{activationDate}} to {{periodEnd}} + one full month. Ratio {{ratio}}. Add-ons: {{addOnsListOrNone}}. First invoice {{firstInvoice}} JD (all-inclusive). Monthly afterwards {{monthlyNet}} JD.",
+      addonLine:
+        "Note: {{label}} is available for {{price}} JD per month and has been included.",
+      allInclusiveNote:
+        "The first invoice shown here is all-inclusive (plan + add-ons + pro-rata). Details below are for explanation only.",
+    },
   },
   ar: {
     // Header
@@ -264,8 +284,27 @@ export const translations = {
     proRataCopyScript: "نسخ النص",
     proRataCopied: "تم النسخ",
     proRataCalculateAction: "احسب",
+
+    labels: {
+      copyScript: "نسخ السكربت",
+      copyWhatsApp: "نسخ للواتساب",
+      copyEmail: "نسخ للبريد",
+      languageToggle: "لغة العميل",
+      callModeToggle: "وضع المكالمات",
+      exportPDF: "تصدير PDF",
+    },
+
+    script: {
+      main:
+        "أوضّح لحضرتك أن **قيمة أول فاتورة هي {{firstInvoice}}** لمنتج {{product}}. تتضمن هذه الفاتورة **نسبة وتناسب بقيمة {{proRata}}** عن الفترة من {{periodStart}} حتى {{periodEnd}}، إضافةً إلى **الاشتراك الشهري {{monthlyNet}}**. التفعيل بتاريخ {{activationDate}} يعطي نسبة {{ratio}}، ويوم التثبيت على الفوترة هو {{anchorDay}} من كل شهر، والإضافات الحالية هي: {{addOnsList}}.",
+      callMode:
+        "دورة الفوترة تثبت على يوم {{anchorDay}} من كل شهر. أول فاتورة = نسبة من {{activationDate}} إلى {{periodEnd}} + شهر مقدم. النسبة {{ratio}}. الإضافات: {{addOnsListOrNone}}. أول فاتورة {{firstInvoice}} دينار (شامل). الشهري بعد ذلك {{monthlyNet}} دينار.",
+      addonLine:
+        "علماً أنّه توجد خدمة {{label}} بقيمة {{price}} JD تُضاف شهرياً.",
+      allInclusiveNote:
+        "المبلغ المعروض كأول فاتورة شامل الاشتراك والإضافات والحسبة النسبية؛ نعرضه هنا مفصّلًا للتوضيح فقط.",
+    },
   },
 } as const;
 
 export type Language = keyof typeof translations;
-export type TranslationKey = keyof typeof translations.en;
