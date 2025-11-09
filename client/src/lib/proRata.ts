@@ -5,6 +5,8 @@
 // Outputs: monthly (usual), proAmount (for this month), period summary
 // ============================================================================
 
+import { translations } from "./i18n";
+
 export type Lang = "ar" | "en";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -171,9 +173,36 @@ export function formatDateForLang(date: Date, lang: Lang): string {
   });
 }
 
+export interface ScriptAddonInfo {
+  label: string;
+  price: number;
+}
+
+export interface ScriptBundle {
+  main: string;
+  addOnLines: string[];
+  allInclusiveNote: string;
+  callMode: string;
+  combined: string;
+  addOnsList: string;
+  addOnsListOrNone: string;
+}
+
+function formatTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(/{{\s*([^}]+?)\s*}}/g, (match, key) => {
+    const trimmed = key.trim();
+    return trimmed in values ? values[trimmed] : match;
+  });
+}
+
 /** نص جاهز للنسخ (AR/EN) */
-export function buildScriptFromFullInvoice(o: ProResult, lang: Lang): string {
+export function buildScriptFromFullInvoice(
+  o: ProResult,
+  lang: Lang,
+  options: { product: string; anchorDay: number; addOns: ScriptAddonInfo[] }
+): ScriptBundle {
   const start = dmy(o.periodStartUTC);
+  const activation = dmy(o.activationUTC);
   const end = dmy(o.periodEndUTC);
   const next = dmy(o.nextPeriodEndUTC);
 
@@ -181,9 +210,60 @@ export function buildScriptFromFullInvoice(o: ProResult, lang: Lang): string {
   const monthly = `JD ${fmt3(o.monthlyNet)}${LRM}`;
   const pro = `JD ${fmt3(o.proAmountNet)}${LRM}`;
 
-  if (lang === "ar") {
-    return `أوضّح لحضرتك أن **قيمة فاتورة هذا الشهر هي ${invoice}**. تتضمن هذه الفاتورة **نسبة وتناسب بقيمة ${pro}** عن المدة من ${start} حتى ${end}، إضافةً إلى **قيمة الاشتراك الأساسية لهذا الشهر ${monthly}** عن المدة من ${end} حتى ${next}. ابتداءً من الفاتورة القادمة ستصدر القيمة الشهرية كما تم الاتفاق (${monthly}). تاريخ إصدار الفاتورة: ${end}.`;
-  }
+  const product = options.product || (lang === "ar" ? "—" : "—");
+  const anchorDay = `${options.anchorDay}`;
 
-  return `Just to clarify, **this month's invoice is ${invoice}**. It includes a **proration of ${pro}** for the period from ${start} to ${end}, plus the **base subscription for this month of ${monthly}** covering ${end} to ${next}. Starting next invoice, the monthly amount will be ${monthly}. Invoice date: ${end}.`;
+  const addOnEntries = options.addOns.map((addon) => ({
+    label: addon.label,
+    priceDisplay: `JD ${fmt3(addon.price)}${LRM}`,
+  }));
+
+  const addOnsList = addOnEntries.length
+    ? addOnEntries
+        .map((entry) => `${entry.label} (${entry.priceDisplay.replace(LRM, "")})`)
+        .join(lang === "ar" ? "، " : ", ")
+    : translations[lang].proRataNoAddOns;
+
+  const values: Record<string, string> = {
+    product,
+    anchorDay,
+    activationDate: activation,
+    periodStart: start,
+    periodEnd: end,
+    nextPeriodEnd: next,
+    ratio: `${(o.ratio * 100).toFixed(2)}%`,
+    monthlyNet: monthly,
+    proRata: pro,
+    firstInvoice: invoice,
+    addOnsList,
+    addOnsListOrNone: addOnsList,
+  };
+
+  const main = formatTemplate(translations[lang].script.main, values);
+  const callMode = formatTemplate(translations[lang].script.callMode, values);
+  const addOnLines = addOnEntries.map((entry) =>
+    formatTemplate(translations[lang].script.addonLine, {
+      ...values,
+      label: entry.label,
+      price: entry.priceDisplay.replace(LRM, ""),
+    })
+  );
+  const allInclusiveNote = formatTemplate(
+    translations[lang].script.allInclusiveNote,
+    values
+  );
+
+  const combined = [main, ...addOnLines, allInclusiveNote]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return {
+    main,
+    addOnLines,
+    allInclusiveNote,
+    callMode,
+    combined,
+    addOnsList,
+    addOnsListOrNone: addOnsList,
+  };
 }
