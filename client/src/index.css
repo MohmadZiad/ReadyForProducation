@@ -89,7 +89,7 @@
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --font-heading: Poppins, -apple-system, BlinkMacSystemFont, sans-serif;
-  --radius: 0.5rem; /* 8px */
+  --radius: 1.5rem; /* 24px aligns with rounded-3xl */
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.1);
   --shadow-sm: 0px 2px 4px 0px hsl(0 0% 0% / 0.06),

@@ -4,14 +4,14 @@ import GlassCard from "./GlassCard";
 import { FileText, TrendingUp, Check } from "lucide-react";
 
 export default function SummaryPanel() {
-  const { t } = useLanguage();
+  const { t, dir } = useLanguage();
 
   // Placeholder data - will be replaced with real data in integration phase
   const hasActivity = false;
 
   if (!hasActivity) {
     return (
-      <section className="py-24 px-6">
+      <section className="py-24 px-6" dir={dir}>
         <div className="container mx-auto max-w-7xl">
           <motion.div
             className="text-center"
@@ -21,17 +21,23 @@ export default function SummaryPanel() {
             transition={{ duration: 0.6 }}
           >
             <h2 className="text-3xl md:text-4xl font-heading font-bold mb-4">
-              {t("summaryTitle")}
+              <span className="bg-gradient-to-r from-orange-500 via-orange-400 to-orange-300 bg-clip-text text-transparent">
+                {t("summaryTitle")}
+              </span>
             </h2>
-            
-            <GlassCard className="p-16 mt-8 max-w-2xl mx-auto">
+
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto text-balance">
+              {t("summaryHelper")}
+            </p>
+
+            <GlassCard className="p-16 mt-8 max-w-2xl mx-auto" dir={dir}>
               <div className="flex flex-col items-center gap-4">
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-800/20 flex items-center justify-center">
                   <FileText className="w-10 h-10 text-orange-400" />
                 </div>
                 <p className="text-lg text-muted-foreground">{t("summaryEmpty")}</p>
-                <p className="text-sm text-muted-foreground/70">
-                  Start using the calculator or assistant to see your activity here
+                <p className="text-sm text-muted-foreground/70 text-center">
+                  {t("summaryHelper")}
                 </p>
               </div>
             </GlassCard>
@@ -49,7 +55,7 @@ export default function SummaryPanel() {
   ];
 
   return (
-    <section className="py-24 px-6">
+    <section className="py-24 px-6" dir={dir}>
       <div className="container mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -58,7 +64,9 @@ export default function SummaryPanel() {
           transition={{ duration: 0.6 }}
         >
           <h2 className="text-3xl md:text-4xl font-heading font-bold mb-12 text-center">
-            {t("summaryTitle")}
+            <span className="bg-gradient-to-r from-orange-500 via-orange-400 to-orange-300 bg-clip-text text-transparent">
+              {t("summaryTitle")}
+            </span>
           </h2>
 
           <motion.div

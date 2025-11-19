@@ -105,6 +105,15 @@ export function useAssistant(options: UseAssistantOptions = {}) {
     }
   }, [sessionId]);
 
+  React.useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
+    };
+  }, []);
+
   const clearError = React.useCallback(() => setLastError(null), []);
 
   const updateAssistantContent = React.useCallback((index: number, content: string) => {

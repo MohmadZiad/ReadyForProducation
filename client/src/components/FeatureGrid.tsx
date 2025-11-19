@@ -10,10 +10,13 @@ const features = [
 ];
 
 export default function FeatureGrid() {
-  const { t } = useLanguage();
+  const { t, dir } = useLanguage();
 
   return (
-    <section className="py-24 px-6 bg-gradient-to-b from-transparent to-orange-50/30 dark:to-orange-950/10">
+    <section
+      className="py-24 px-6 bg-gradient-to-b from-transparent to-orange-50/30 dark:to-orange-950/10"
+      dir={dir}
+    >
       <div className="container mx-auto max-w-7xl">
         {/* Section header */}
         <motion.div
@@ -23,11 +26,13 @@ export default function FeatureGrid() {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-4xl md:text-5xl font-heading font-bold mb-4 bg-gradient-to-r from-orange-500 to-orange-400 bg-clip-text text-transparent">
-            Powerful Features
+          <h2 className="text-4xl md:text-5xl font-heading font-bold mb-4">
+            <span className="bg-gradient-to-r from-orange-500 via-orange-400 to-orange-300 bg-clip-text text-transparent">
+              {t("featuresHeading")}
+            </span>
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Everything you need to succeed, all in one place
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-balance">
+            {t("featuresSubheading")}
           </p>
         </motion.div>
 

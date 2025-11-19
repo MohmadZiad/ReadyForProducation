@@ -25,6 +25,8 @@ export const translations = {
     kpi4Label: "Precise Results",
     
     // Features
+    featuresHeading: "Powerful features crafted for operators",
+    featuresSubheading: "Localized workflows, instant guidance, and premium tooling that feel tailored to your market",
     feature1Title: "Instant Results",
     feature1Description: "Get immediate calculations and analytics with our powerful processing engine",
     feature2Title: "Smart Pro-Rata",
@@ -80,6 +82,7 @@ export const translations = {
     // Summary
     summaryTitle: "Recent Activity",
     summaryEmpty: "No recent activity",
+    summaryHelper: "Run a calculation or ask the assistant to populate this control center.",
     
     // Common
     loading: "Loading...",
@@ -246,6 +249,8 @@ export const translations = {
     kpi4Label: "نتائج دقيقة",
     
     // Features
+    featuresHeading: "ميزات قوية مصممة للفرق التشغيلية",
+    featuresSubheading: "تجارب محلية وتوجيه فوري وأدوات فاخرة تشعر أنها مبنية لسوقك",
     feature1Title: "نتائج لحظية",
     feature1Description: "احصل على حسابات وتحليلات فورية باستخدام محرك المعالجة القوي",
     feature2Title: "برو راتا ذكي",
@@ -301,6 +306,7 @@ export const translations = {
     // Summary
     summaryTitle: "النشاط الأخير",
     summaryEmpty: "لا يوجد نشاط حديث",
+    summaryHelper: "ابدأ باستخدام الحاسبة أو اسأل المساعد لعرض نشاطك هنا.",
     
     // Common
     loading: "جاري التحميل...",
