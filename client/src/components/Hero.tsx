@@ -1,9 +1,27 @@
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { Link } from "wouter";
 import { useLanguage } from "@/lib/language-context";
 import GradientButton from "./GradientButton";
 import { Sparkles, Zap } from "lucide-react";
+
+const PARTICLE_CONFIG = [
+  { left: 12, top: 18, delay: 0, duration: 3.5 },
+  { left: 24, top: 62, delay: 0.6, duration: 4.2 },
+  { left: 38, top: 28, delay: 1.1, duration: 3.8 },
+  { left: 52, top: 12, delay: 0.3, duration: 4.6 },
+  { left: 68, top: 22, delay: 1.4, duration: 3.4 },
+  { left: 80, top: 40, delay: 0.2, duration: 4.9 },
+  { left: 70, top: 68, delay: 1.2, duration: 3.7 },
+  { left: 55, top: 74, delay: 0.9, duration: 4.1 },
+  { left: 35, top: 70, delay: 0.5, duration: 3.6 },
+  { left: 18, top: 48, delay: 1.5, duration: 4.3 },
+  { left: 10, top: 32, delay: 0.7, duration: 4.7 },
+  { left: 88, top: 58, delay: 1.7, duration: 3.9 },
+  { left: 60, top: 50, delay: 0.1, duration: 4.4 },
+  { left: 46, top: 44, delay: 1, duration: 3.3 },
+  { left: 28, top: 14, delay: 1.8, duration: 4.8 },
+];
 
 export default function Hero() {
   const { t } = useLanguage();
@@ -12,6 +30,7 @@ export default function Hero() {
     target: ref,
     offset: ["start start", "end start"],
   });
+  const prefersReducedMotion = useReducedMotion();
 
   const y = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
@@ -53,26 +72,24 @@ export default function Hero() {
       />
 
       {/* Floating particles */}
-      {[...Array(15)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 bg-white rounded-full opacity-40"
-          style={{
-            left: `${10 + Math.random() * 80}%`,
-            top: `${10 + Math.random() * 80}%`,
-          }}
-          animate={{
-            y: [-20, 20, -20],
-            x: [-10, 10, -10],
-            opacity: [0.2, 0.6, 0.2],
-          }}
-          transition={{
-            duration: 3 + Math.random() * 2,
-            repeat: Infinity,
-            delay: Math.random() * 2,
-          }}
-        />
-      ))}
+      {!prefersReducedMotion &&
+        PARTICLE_CONFIG.map(({ left, top, delay, duration }, index) => (
+          <motion.div
+            key={index}
+            className="absolute w-2 h-2 bg-white rounded-full opacity-40"
+            style={{ left: `${left}%`, top: `${top}%` }}
+            animate={{
+              y: [-20, 20, -20],
+              x: [-10, 10, -10],
+              opacity: [0.2, 0.6, 0.2],
+            }}
+            transition={{
+              duration,
+              repeat: Infinity,
+              delay,
+            }}
+          />
+        ))}
 
       {/* Content */}
       <motion.div
