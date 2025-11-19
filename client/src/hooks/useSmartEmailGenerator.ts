@@ -19,8 +19,11 @@ export const templateOptions = [
 export type TemplateValue = (typeof templateOptions)[number]["value"];
 
 const ARABIC_REGEX = /[\u0600-\u06FF]/;
+const ARABIC_CHARACTERS_GLOBAL = /[\u0600-\u06FF]+/g;
 const LATIN_REGEX = /[A-Za-z]/;
 const CONTACT_REGEX = /(\+?\d[\d\s-]{6,})/;
+const LABELED_CONTACT_REGEX = /(?:contact|phone|mobile|callback|tel|رقم التواصل|رقم الهاتف|هاتف|اتصال)\s*(?:number|#)?\s*[:\-\s]*([+]?\d[\d\s-]{6,})/i;
+const SUBSCRIPTION_REGEX = /(?:subscription|service|اشتراك)\s*(?:number|id|#)?\s*[:#\-\s]*([A-Za-z0-9\-]+)/i;
 const CALLBACK_HINT_REGEX = /(call|callback|phone|اتصال|هاتف|تواصل)/i;
 
 interface EmailCopy {
@@ -39,6 +42,7 @@ interface GenerateEmailArgs {
   outputMode: OutputMode;
   templateKey: TemplateValue;
   tone: ToneValue;
+  customerData: CustomerData;
 }
 
 interface CustomerData {
@@ -46,11 +50,12 @@ interface CustomerData {
   accountId?: string;
   ticketId?: string;
   contactNumber?: string;
+  subscriptionNumber?: string;
 }
 
 const toneClosings: Record<ToneValue, { en: string; ar: string }> = {
   veryFormal: {
-    en: "Kind regards,",
+    en: "Best regards,",
     ar: "مع خالص التحيات،",
   },
   professional: {
@@ -58,66 +63,102 @@ const toneClosings: Record<ToneValue, { en: string; ar: string }> = {
     ar: "أطيب التحيات،",
   },
   direct: {
-    en: "Thanks,",
+    en: "BR,",
     ar: "شكرًا،",
   },
+};
+
+const buildDetailsBlock = (data: CustomerData, lang: "en" | "ar"): string => {
+  const lines: string[] = [];
+  if (data.contactNumber) {
+    lines.push(lang === "en" ? `Contact number: ${data.contactNumber}` : `رقم التواصل: ${data.contactNumber}`);
+  }
+  if (data.subscriptionNumber) {
+    lines.push(lang === "en" ? `Subscription #: ${data.subscriptionNumber}` : `رقم الاشتراك: ${data.subscriptionNumber}`);
+  }
+  return lines.length ? `\n\n${lines.join("\n")}` : "";
 };
 
 const templateLibrary = {
   escalation: (data: CustomerData, tone: ToneValue): EmailResult => {
     const customerRef = data.name || "the customer";
-    const caseRef = data.ticketId || data.accountId || "their case";
+    const caseRef = data.ticketId || data.accountId || data.subscriptionNumber || "their case";
     return {
       updatedAt: Date.now(),
       en: {
         subject: `Escalation | ${caseRef}`,
-        body: `Hi Team,\n\nPlease assist ${customerRef} by reviewing ${caseRef}. The agent requires technical insights to proceed. ${toneClosings[tone].en}\nOrange Support`,
+        body: `Hi Team,\n\nPlease assist ${customerRef} by reviewing ${caseRef}. The agent requires technical insights to proceed.\n\n${toneClosings[tone].en}${buildDetailsBlock(
+          data,
+          "en"
+        )}`,
       },
       ar: {
         subject: `تصعيد | ${caseRef}`,
-        body: `مرحبًا فريق الدعم،\n\nنرجو مراجعة حالة ${caseRef} الخاصة بالعميل ${customerRef} لتزويدنا برأي فني يمكّن الفريق من المتابعة. ${toneClosings[tone].ar}\nفريق أورانج`,
+        body: `مرحبًا فريق الدعم،\n\nنرجو مراجعة حالة ${caseRef} الخاصة بالعميل ${customerRef} لتزويدنا برأي فني يمكّن الفريق من المتابعة.\n\n${toneClosings[tone].ar}${buildDetailsBlock(
+          data,
+          "ar"
+        )}`,
       },
     };
   },
   request: (data: CustomerData, tone: ToneValue): EmailResult => {
     const customerRef = data.name || "the customer";
+    const caseId = data.ticketId ?? data.subscriptionNumber ?? "Pending";
     return {
       updatedAt: Date.now(),
       en: {
-        subject: `Info Request | ${data.ticketId ?? "Pending"}`,
-        body: `Hi Team,\n\nKindly share the missing details to continue working on ${customerRef}'s request. ${toneClosings[tone].en}\nOrange Support`,
+        subject: `Info Request | ${caseId}`,
+        body: `Hi Team,\n\nKindly share the missing details to continue working on ${customerRef}'s request.\n\n${toneClosings[tone].en}${buildDetailsBlock(
+          data,
+          "en"
+        )}`,
       },
       ar: {
-        subject: `طلب معلومات | ${data.ticketId ?? "قيد المتابعة"}`,
-        body: `مرحبًا فريق الدعم،\n\nنرجو تزويدنا بالمعلومات الناقصة لاستكمال معالجة طلب العميل ${customerRef}. ${toneClosings[tone].ar}\nفريق أورانج`,
+        subject: `طلب معلومات | ${caseId}`,
+        body: `مرحبًا فريق الدعم،\n\nنرجو تزويدنا بالمعلومات الناقصة لاستكمال معالجة طلب العميل ${customerRef}.\n\n${toneClosings[tone].ar}${buildDetailsBlock(
+          data,
+          "ar"
+        )}`,
       },
     };
   },
   followUp: (data: CustomerData, tone: ToneValue): EmailResult => {
-    const caseRef = data.ticketId || "the previous case";
+    const caseRef = data.ticketId || data.subscriptionNumber || "the previous case";
     return {
       updatedAt: Date.now(),
       en: {
         subject: `Follow-up | ${caseRef}`,
-        body: `Dears,\n\nJust checking if there are updates on ${caseRef}. The customer is awaiting our feedback. ${toneClosings[tone].en}\nOrange Support`,
+        body: `Dears,\n\nJust checking if there are updates on ${caseRef}. The customer is awaiting our feedback.\n\n${toneClosings[tone].en}${buildDetailsBlock(
+          data,
+          "en"
+        )}`,
       },
       ar: {
         subject: `متابعة | ${caseRef}`,
-        body: `أعزائي،\n\nنود التأكد من وجود أي تحديثات بخصوص ${caseRef}. العميل بانتظار ردّنا الداخلي. ${toneClosings[tone].ar}\nفريق أورانج`,
+        body: `أعزائي،\n\nنود التأكد من وجود أي تحديثات بخصوص ${caseRef}. العميل بانتظار ردّنا الداخلي.\n\n${toneClosings[tone].ar}${buildDetailsBlock(
+          data,
+          "ar"
+        )}`,
       },
     };
   },
   refund: (data: CustomerData, tone: ToneValue): EmailResult => {
-    const caseRef = data.ticketId || "the refund case";
+    const caseRef = data.ticketId || data.subscriptionNumber || "the refund case";
     return {
       updatedAt: Date.now(),
       en: {
         subject: `Refund Review | ${caseRef}`,
-        body: `Hi Finance Team,\n\nPlease review the compensation request tied to ${caseRef}. Customer reference: ${data.name ?? "N/A"}. ${toneClosings[tone].en}\nOrange Support`,
+        body: `Hi Finance Team,\n\nPlease review the compensation request tied to ${caseRef}. Customer reference: ${data.name ?? "N/A"}.\n\n${toneClosings[tone].en}${buildDetailsBlock(
+          data,
+          "en"
+        )}`,
       },
       ar: {
         subject: `مراجعة استرداد | ${caseRef}`,
-        body: `مرحبًا فريق المالية،\n\nنرجو مراجعة طلب التعويض المرتبط بالحالة ${caseRef}. اسم العميل: ${data.name ?? "غير متوفر"}. ${toneClosings[tone].ar}\nفريق أورانج`,
+        body: `مرحبًا فريق المالية،\n\nنرجو مراجعة طلب التعويض المرتبط بالحالة ${caseRef}. اسم العميل: ${data.name ?? "غير متوفر"}.\n\n${toneClosings[tone].ar}${buildDetailsBlock(
+          data,
+          "ar"
+        )}`,
       },
     };
   },
@@ -138,9 +179,27 @@ const detectLanguage = (value: string): DetectedLanguage => {
   return "en";
 };
 
+const stripArabicCharacters = (value: string): string => value.replace(ARABIC_CHARACTERS_GLOBAL, "");
+
+const sanitizeEnglishMultiline = (value: string): string => {
+  if (!value) return "";
+  return stripArabicCharacters(value)
+    .split("\n")
+    .map((line) => line.replace(/\s{2,}/g, " ").trimEnd())
+    .join("\n")
+    .trim();
+};
+
 const extractContactNumber = (value: string): string | undefined => {
+  const labeledMatch = value.match(LABELED_CONTACT_REGEX);
+  if (labeledMatch) return labeledMatch[1]?.trim();
   const match = value.match(CONTACT_REGEX);
   return match ? match[0].trim() : undefined;
+};
+
+const extractSubscriptionNumber = (value: string): string | undefined => {
+  const match = value.match(SUBSCRIPTION_REGEX);
+  return match ? match[1]?.trim() : undefined;
 };
 
 const parseCustomerData = (value: string): CustomerData => {
@@ -152,22 +211,30 @@ const parseCustomerData = (value: string): CustomerData => {
     ticketId: ticketMatch?.[1]?.trim(),
     accountId: accountMatch?.[1]?.trim(),
     contactNumber: extractContactNumber(value),
+    subscriptionNumber: extractSubscriptionNumber(value),
   };
 };
 
-const mockGenerateEmail = async ({ notes, outputMode, templateKey, tone }: GenerateEmailArgs): Promise<EmailResult> => {
+const mockGenerateEmail = async ({ notes, outputMode, templateKey, tone, customerData }: GenerateEmailArgs): Promise<EmailResult> => {
   await new Promise((resolve) => setTimeout(resolve, 360));
-  const baseTemplate = getTemplateBuilder(templateKey)(parseCustomerData(notes), tone);
+  const baseTemplate = getTemplateBuilder(templateKey)(customerData, tone);
   const summarySentence = notes
     ? notes.split(/\.|\n/).filter(Boolean)[0]?.trim() ?? ""
     : "";
 
-  const enhanceCopy = (copy?: EmailCopy): EmailCopy | undefined => {
+  const enhanceCopy = (copy: EmailCopy | undefined, lang: "en" | "ar"): EmailCopy | undefined => {
     if (!copy) return undefined;
-    const summary = summarySentence ? `\n\nContext: ${summarySentence}` : "";
+    const preparedSummary = summarySentence
+      ? lang === "en"
+        ? sanitizeEnglishMultiline(summarySentence)
+        : summarySentence
+      : "";
+    const summary = preparedSummary ? `\n\nContext: ${preparedSummary}` : "";
+    const subject = lang === "en" ? stripArabicCharacters(copy.subject).trim() || copy.subject : copy.subject;
+    const body = lang === "en" ? sanitizeEnglishMultiline(copy.body) || copy.body : copy.body;
     return {
-      subject: copy.subject,
-      body: `${copy.body}${summary}`,
+      subject,
+      body: `${body}${summary}`,
     };
   };
 
@@ -176,8 +243,8 @@ const mockGenerateEmail = async ({ notes, outputMode, templateKey, tone }: Gener
 
   return {
     updatedAt: Date.now(),
-    en: includeEnglish ? enhanceCopy(baseTemplate.en) : undefined,
-    ar: includeArabic ? enhanceCopy(baseTemplate.ar) : undefined,
+    en: includeEnglish ? enhanceCopy(baseTemplate.en, "en") : undefined,
+    ar: includeArabic ? enhanceCopy(baseTemplate.ar, "ar") : undefined,
   };
 };
 
@@ -190,7 +257,8 @@ export const useSmartEmailGenerator = () => {
   const [isGenerating, setIsGenerating] = React.useState(false);
 
   const detectedLanguage = React.useMemo(() => detectLanguage(notes), [notes]);
-  const contactNumber = React.useMemo(() => extractContactNumber(notes), [notes]);
+  const customerData = React.useMemo(() => parseCustomerData(notes), [notes]);
+  const contactNumber = customerData.contactNumber;
   const needsContactNumber = React.useMemo(() => {
     if (!notes) return false;
     return CALLBACK_HINT_REGEX.test(notes) && !contactNumber;
@@ -199,10 +267,10 @@ export const useSmartEmailGenerator = () => {
   const applyTemplatePreview = React.useCallback(
     (key: TemplateValue) => {
       setTemplateKey(key);
-      const preview = getTemplateBuilder(key)(parseCustomerData(notes), tone);
+      const preview = getTemplateBuilder(key)(customerData, tone);
       setResult(preview);
     },
-    [notes, tone]
+    [customerData, tone]
   );
 
   const generateEmail = React.useCallback(
@@ -210,14 +278,20 @@ export const useSmartEmailGenerator = () => {
       if (!notes.trim()) return;
       setIsGenerating(true);
       try {
-        const generated = await mockGenerateEmail({ notes, outputMode: mode, templateKey, tone });
+        const generated = await mockGenerateEmail({
+          notes,
+          outputMode: mode,
+          templateKey,
+          tone,
+          customerData,
+        });
         setResult(generated);
         setOutputMode(mode);
       } finally {
         setIsGenerating(false);
       }
     },
-    [notes, templateKey, tone]
+    [notes, templateKey, tone, customerData]
   );
 
   return {
@@ -236,5 +310,6 @@ export const useSmartEmailGenerator = () => {
     isGenerating,
     needsContactNumber,
     contactNumber,
+    customerData,
   };
 };
