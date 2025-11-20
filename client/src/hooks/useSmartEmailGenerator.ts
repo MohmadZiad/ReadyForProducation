@@ -25,6 +25,10 @@ const CONTACT_REGEX = /(\+?\d[\d\s-]{6,})/;
 const LABELED_CONTACT_REGEX = /(?:contact|phone|mobile|callback|tel|رقم التواصل|رقم الهاتف|هاتف|اتصال)\s*(?:number|#)?\s*[:\-\s]*([+]?\d[\d\s-]{6,})/i;
 const SUBSCRIPTION_REGEX = /(?:subscription|service|اشتراك)\s*(?:number|id|#)?\s*[:#\-\s]*([A-Za-z0-9\-]+)/i;
 const CALLBACK_HINT_REGEX = /(call|callback|phone|اتصال|هاتف|تواصل)/i;
+const CONTEXT_LABELS: Record<"en" | "ar", string> = {
+  en: "Context",
+  ar: "السياق",
+};
 
 interface EmailCopy {
   subject: string;
@@ -190,6 +194,15 @@ const sanitizeEnglishMultiline = (value: string): string => {
     .trim();
 };
 
+const sanitizeEnglishCopy = (copy: EmailCopy): EmailCopy => {
+  const cleanedSubject = stripArabicCharacters(copy.subject).replace(/\s{2,}/g, " ").trim();
+  const cleanedBody = sanitizeEnglishMultiline(copy.body);
+  return {
+    subject: cleanedSubject,
+    body: cleanedBody,
+  };
+};
+
 const extractContactNumber = (value: string): string | undefined => {
   const labeledMatch = value.match(LABELED_CONTACT_REGEX);
   if (labeledMatch) return labeledMatch[1]?.trim();
@@ -215,36 +228,82 @@ const parseCustomerData = (value: string): CustomerData => {
   };
 };
 
-const mockGenerateEmail = async ({ notes, outputMode, templateKey, tone, customerData }: GenerateEmailArgs): Promise<EmailResult> => {
-  await new Promise((resolve) => setTimeout(resolve, 360));
+const polishWithAI = async (lang: "en" | "ar", notes: string, draft: EmailCopy): Promise<EmailCopy> => {
+  try {
+    const response = await fetch("/api/polish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        lang,
+        notes,
+        subject: draft.subject,
+        body: draft.body,
+      }),
+    });
+    const data = (await response.json()) as { subject?: string; body?: string; error?: string };
+    if (!response.ok) {
+      throw new Error(data?.error ?? "polish_failed");
+    }
+    const polishedSubject = typeof data.subject === "string" ? data.subject : draft.subject;
+    const polishedBody = typeof data.body === "string" ? data.body : draft.body;
+    if (lang === "en") {
+      const sanitized = sanitizeEnglishCopy({ subject: polishedSubject, body: polishedBody });
+      const fallback = sanitizeEnglishCopy(draft);
+      return {
+        subject: sanitized.subject || fallback.subject,
+        body: sanitized.body || fallback.body,
+      };
+    }
+    return {
+      subject: polishedSubject,
+      body: polishedBody,
+    };
+  } catch (error) {
+    console.warn("polish request failed", error);
+    return lang === "en" ? sanitizeEnglishCopy(draft) : draft;
+  }
+};
+
+const buildEmailWithAI = async ({
+  notes,
+  outputMode,
+  templateKey,
+  tone,
+  customerData,
+}: GenerateEmailArgs): Promise<EmailResult> => {
   const baseTemplate = getTemplateBuilder(templateKey)(customerData, tone);
   const summarySentence = notes
-    ? notes.split(/\.|\n/).filter(Boolean)[0]?.trim() ?? ""
+    ? notes
+        .split(/[\n\r.?!؟]+/)
+        .map((segment) => segment.trim())
+        .filter(Boolean)[0] ?? ""
     : "";
 
   const enhanceCopy = (copy: EmailCopy | undefined, lang: "en" | "ar"): EmailCopy | undefined => {
     if (!copy) return undefined;
-    const preparedSummary = summarySentence
-      ? lang === "en"
-        ? sanitizeEnglishMultiline(summarySentence)
-        : summarySentence
-      : "";
-    const summary = preparedSummary ? `\n\nContext: ${preparedSummary}` : "";
-    const subject = lang === "en" ? stripArabicCharacters(copy.subject).trim() || copy.subject : copy.subject;
-    const body = lang === "en" ? sanitizeEnglishMultiline(copy.body) || copy.body : copy.body;
+    const summary = summarySentence ? `\n\n${CONTEXT_LABELS[lang]}: ${summarySentence}` : "";
     return {
-      subject,
-      body: `${body}${summary}`,
+      subject: copy.subject,
+      body: `${copy.body}${summary}`,
     };
   };
 
   const includeArabic = outputMode === "ar" || outputMode === "bi";
   const includeEnglish = outputMode === "en" || outputMode === "bi";
+  const englishDraft = includeEnglish ? enhanceCopy(baseTemplate.en, "en") : undefined;
+  const arabicDraft = includeArabic ? enhanceCopy(baseTemplate.ar, "ar") : undefined;
+
+  const [enResult, arResult] = await Promise.all([
+    englishDraft ? polishWithAI("en", notes, englishDraft) : Promise.resolve<EmailCopy | undefined>(undefined),
+    arabicDraft ? polishWithAI("ar", notes, arabicDraft) : Promise.resolve<EmailCopy | undefined>(undefined),
+  ]);
 
   return {
     updatedAt: Date.now(),
-    en: includeEnglish ? enhanceCopy(baseTemplate.en, "en") : undefined,
-    ar: includeArabic ? enhanceCopy(baseTemplate.ar, "ar") : undefined,
+    en: enResult,
+    ar: arResult,
   };
 };
 
@@ -278,7 +337,7 @@ export const useSmartEmailGenerator = () => {
       if (!notes.trim()) return;
       setIsGenerating(true);
       try {
-        const generated = await mockGenerateEmail({
+        const generated = await buildEmailWithAI({
           notes,
           outputMode: mode,
           templateKey,
