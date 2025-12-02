@@ -311,7 +311,7 @@ export function buildScriptFromFullInvoice(
       return { label: addon.label ?? "", amount: addonAfterTax };
     });
 
-    const addonSentence = addOnParts.length
+    const addonSentenceWithProration = addOnParts.length
       ? lang === "ar"
         ? `كما تم إضافة خدمة ${addOnParts
             .map((item) => `${item.label} بقيمة ${item.amount}`)
@@ -321,21 +321,49 @@ export function buildScriptFromFullInvoice(
             .join(" and ")}.`
       : "";
 
-    const mainAr =
-      `أوضح لحضرتك أن قيمة أول فاتورة هي **${invoiceAfterTax}** لاشتراك إنترنت في كل مكان.` +
-      `\nتتضمن هذه الفاتورة نسبة تناسب بقيمة **${prorationAfterTax}** عن الفترة من **${start}** حتى **${end}**، إضافة إلى الاشتراك الشهري بقيمة **${monthlyAfterTax}**.` +
-      (addonSentence && lang === "ar" ? `\n${addonSentence}` : "") +
-      `\nمن دورة الفوترة القادمة تكون قيمة الفاتورة الشهرية هي **${monthlyAfterTax}**${
-        addOnParts.length ? " بالإضافة إلى قيمة أي خدمات إضافية مفعّلة لديك." : ""
-      }`;
+    const addonSentenceZero = addOnParts.length
+      ? lang === "ar"
+        ? `كما تم إضافة خدمة ${addOnParts
+            .map((item) => `${item.label} بقيمة ${item.amount}`)
+            .join("، ")}.`
+        : `Additionally, the ${addOnParts
+            .map((item) => `${item.label} service has been added for ${item.amount}`)
+            .join(" and ")}.`
+      : "";
 
-    const mainEn =
-      `I would like to clarify that the first invoice amount is **${invoiceAfterTax}** for the 'Internet Everywhere' subscription.` +
-      `\nThis includes a prorated amount of **${prorationAfterTax}** for the period from **${start}** to **${end}**, plus the monthly subscription of **${monthlyAfterTax}**.` +
-      (addonSentence && lang === "en" ? `\n${addonSentence}` : "") +
-      `\nStarting from the next billing cycle, your monthly bill will be **${monthlyAfterTax}**${
-        addOnParts.length ? " plus the cost of any active additional services." : ""
-      }`;
+    const hasProration = (o.prorationAfterTax ?? 0) > 0;
+
+    const mainAr = hasProration
+      ? `أوضح لحضرتك أن قيمة أول فاتورة هي **${invoiceAfterTax}** لاشتراك إنترنت في كل مكان.` +
+        `\nتتضمن هذه الفاتورة نسبة تناسب بقيمة **${prorationAfterTax}** عن الفترة من **${start}** حتى **${end}**، إضافة إلى الاشتراك الشهري بقيمة **${monthlyAfterTax}**.` +
+        (addonSentenceWithProration && lang === "ar"
+          ? `\n${addonSentenceWithProration}`
+          : "") +
+        `\nمن دورة الفوترة القادمة تكون قيمة الفاتورة الشهرية هي **${monthlyAfterTax}**${
+          addOnParts.length ? " بالإضافة إلى قيمة أي خدمات إضافية مفعّلة لديك." : ""
+        }`
+      : `أوضح لحضرتك أن قيمة أول فاتورة هي **${invoiceAfterTax}** (شامل الضريبة).` +
+        `\nوهي عبارة عن الاشتراك الشهري بقيمة **${monthlyAfterTax}** عن الفترة القادمة.` +
+        (addonSentenceZero && lang === "ar" ? `\n${addonSentenceZero}` : "") +
+        `\nمن دورة الفوترة القادمة تكون قيمة الفاتورة الشهرية هي **${monthlyAfterTax}**${
+          addOnParts.length ? " بالإضافة إلى الخدمات الإضافية." : ""
+        }`;
+
+    const mainEn = hasProration
+      ? `I would like to clarify that the first invoice amount is **${invoiceAfterTax}** for the 'Internet Everywhere' subscription.` +
+        `\nThis includes a prorated amount of **${prorationAfterTax}** for the period from **${start}** to **${end}**, plus the monthly subscription of **${monthlyAfterTax}**.` +
+        (addonSentenceWithProration && lang === "en"
+          ? `\n${addonSentenceWithProration}`
+          : "") +
+        `\nStarting from the next billing cycle, your monthly bill will be **${monthlyAfterTax}**${
+          addOnParts.length ? " plus the cost of any active additional services." : ""
+        }`
+      : `I would like to clarify that the first invoice amount is **${invoiceAfterTax}** (Inc-Tax).` +
+        `\nThis represents the standard monthly subscription of **${monthlyAfterTax}** for the upcoming period.` +
+        (addonSentenceZero && lang === "en" ? `\n${addonSentenceZero}` : "") +
+        `\nStarting from the next billing cycle, your monthly bill will be **${monthlyAfterTax}**${
+          addOnParts.length ? " plus any active additional services." : ""
+        }`;
 
     const main = lang === "ar" ? mainAr : mainEn;
 
