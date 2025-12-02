@@ -176,6 +176,19 @@ export function computeFromMonthly(
   const period = computePeriod(activation, anchorDay);
 
   if (options?.productId === "iew") {
+    const activationDate = period.activationUTC;
+    const isActivationOnAnchor =
+      activationDate.getUTCDate() ===
+      clampDay(
+        activationDate.getUTCFullYear(),
+        activationDate.getUTCMonth(),
+        anchorDay
+      );
+
+    const periodForCalc = isActivationOnAnchor
+      ? { ...period, ratio: 0, proDays: 0 }
+      : period;
+
     const baseBeforeTax = monthlyNet;
     const addOns = options.addOns ?? [];
     const addOnsTotalBeforeTax = addOns.reduce(
@@ -183,7 +196,7 @@ export function computeFromMonthly(
       0
     );
 
-    const prorationBeforeTax = baseBeforeTax * period.ratio;
+    const prorationBeforeTax = baseBeforeTax * periodForCalc.ratio;
     const monthlyAfterTax = baseBeforeTax * (1 + VAT_RATE);
     const prorationAfterTax = prorationBeforeTax * (1 + VAT_RATE);
     const addOnsAfterTax = addOnsTotalBeforeTax * (1 + VAT_RATE);
@@ -201,7 +214,7 @@ export function computeFromMonthly(
     }));
 
     return {
-      ...period,
+      ...periodForCalc,
       productId: options.productId,
       monthlyBeforeTax: baseBeforeTax,
       monthlyAfterTax,
