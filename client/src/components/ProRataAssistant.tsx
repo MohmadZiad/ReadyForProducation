@@ -65,6 +65,7 @@ export function ProRataAssistant(props: AssistantProps) {
 
   const { t, language } = useLanguage();
   const lang = (language as Lang) ?? "en";
+  const isInternetEverywhere = productId === "iew";
 
   const idRef = React.useRef(0);
   const nextId = React.useCallback(() => `msg-${idRef.current++}`, []);
@@ -181,9 +182,29 @@ export function ProRataAssistant(props: AssistantProps) {
       `${t("proRataRatio")}: ${(breakdown.ratio * 100).toFixed(2)}%`,
       `${t("proRataBase")}: JD ${fmt3(breakdown.basePrice)}`,
       `${t("proRataAddOnsTotal")}: JD ${fmt3(breakdown.addOnsTotal)}`,
-      `${t("proRataMonthlyNet")}: JD ${fmt3(breakdown.monthlyNet)}`,
-      `${t("proRataProAmount")}: JD ${fmt3(breakdown.proAmountNet)}`,
-      `${t("proRataInvoice")}: JD ${fmt3(breakdown.invoiceNet)}`,
+      `${
+        isInternetEverywhere ? t("proRataMonthlyAfterTax") : t("proRataMonthlyNet")
+      }: JD ${fmt3(
+        isInternetEverywhere
+          ? breakdown.monthlyAfterTax ?? breakdown.monthlyNet
+          : breakdown.monthlyNet
+      )}`,
+      `${
+        isInternetEverywhere
+          ? t("proRataProAmountAfterTax")
+          : t("proRataProAmount")
+      }: JD ${fmt3(
+        isInternetEverywhere
+          ? breakdown.prorationAfterTax ?? breakdown.proAmountNet
+          : breakdown.proAmountNet
+      )}`,
+      `${
+        isInternetEverywhere ? t("proRataInvoiceAfterTax") : t("proRataInvoice")
+      }: JD ${fmt3(
+        isInternetEverywhere
+          ? breakdown.invoiceAfterTax ?? breakdown.invoiceNet
+          : breakdown.invoiceNet
+      )}`,
     ];
 
     if (selectedAddOns.length === 0) {
