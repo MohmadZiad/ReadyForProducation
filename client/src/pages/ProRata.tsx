@@ -46,6 +46,7 @@ import {
   fmt3,
   formatDateForLang,
   type ProResult,
+  VAT_RATE,
 } from "@/lib/proRata";
 import { translations } from "@/lib/i18n";
 import type { ProductConfig, AddOnConfig } from "@shared/config";
@@ -423,6 +424,7 @@ export default function ProRataPage() {
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const [callMode, setCallMode] = React.useState(false);
   const [out, setOut] = React.useState<ComputedResult | null>(null);
+  const [prorationBasePrice, setProrationBasePrice] = React.useState<string>("");
   const copyTimeout = React.useRef<number | null>(null);
 
   const configQuery = useQuery<PricingConfig>({
@@ -461,6 +463,10 @@ export default function ProRataPage() {
     [products, productId]
   );
 
+  const isInternetEverywhere = selectedProduct?.id === "iew";
+  const isAdslOrFiber =
+    selectedProduct?.id === "adsl" || selectedProduct?.id === "ftth";
+
   const selectedAddonDetails = React.useMemo(
     () => addons.filter((addon) => selectedAddOns.includes(addon.id)),
     [addons, selectedAddOns]
@@ -471,15 +477,40 @@ export default function ProRataPage() {
     [selectedAddonDetails]
   );
 
-  const monthlyNet = basePrice + addOnsTotal;
+  const monthlyInput =
+    isInternetEverywhere || isAdslOrFiber ? basePrice : basePrice + addOnsTotal;
+
+  const prorationBaseNumber = prorationBasePrice === ""
+    ? undefined
+    : Number(prorationBasePrice);
 
   const preview = React.useMemo(() => {
     try {
-      return computeFromMonthly(monthlyNet, activation, anchor);
+      return computeFromMonthly(monthlyInput, activation, anchor, {
+        productId: selectedProduct?.id,
+        addOns:
+          isInternetEverywhere || isAdslOrFiber
+            ? selectedAddonDetails.map((addon) => ({
+                label: addon.label[lang],
+                price: addon.price,
+              }))
+            : [],
+        prorationBasePrice: isAdslOrFiber ? prorationBaseNumber : undefined,
+      });
     } catch {
       return null;
     }
-  }, [monthlyNet, activation, anchor]);
+  }, [
+    monthlyInput,
+    activation,
+    anchor,
+    selectedProduct?.id,
+    isAdslOrFiber,
+    isInternetEverywhere,
+    selectedAddonDetails,
+    lang,
+    prorationBaseNumber,
+  ]);
 
   React.useEffect(() => {
     setOut(null);
@@ -498,6 +529,7 @@ export default function ProRataPage() {
     setProductId(id);
     setAnchor(product.anchorDay);
     setBasePrice(product.defaultBasePrice);
+    setProrationBasePrice("");
   };
 
   const handleToggleAddon = (id: string, checked: boolean) => {
@@ -597,6 +629,32 @@ export default function ProRataPage() {
   }, []);
 
   const summary = out ?? preview;
+  const ratioValue = summary?.ratio ?? 0;
+  const monthlyDisplay = summary
+    ? isInternetEverywhere || isAdslOrFiber
+      ? summary.monthlyAfterTax ?? summary.monthlyNet
+      : summary.monthlyNet
+    : isInternetEverywhere || isAdslOrFiber
+      ? basePrice * (1 + VAT_RATE)
+      : monthlyInput;
+
+  const prorationDisplay = summary
+    ? isInternetEverywhere || isAdslOrFiber
+      ? summary.prorationAfterTax ?? 0
+      : summary.proAmountNet ?? 0
+    : isInternetEverywhere || isAdslOrFiber
+      ? (prorationBaseNumber ?? basePrice) * ratioValue * (1 + VAT_RATE)
+      : monthlyInput * ratioValue;
+
+  const invoiceDisplay = summary
+    ? isInternetEverywhere || isAdslOrFiber
+      ? summary.invoiceAfterTax ?? summary.invoiceNet
+      : summary.invoiceNet
+    : isInternetEverywhere || isAdslOrFiber
+      ? (basePrice + (prorationBaseNumber ?? basePrice) * ratioValue + addOnsTotal) *
+        (1 + VAT_RATE)
+      : monthlyInput + prorationDisplay;
+
   const addOnsLabel = selectedAddonDetails.length
     ? selectedAddonDetails.map((addon) => addon.label[lang]).join(", ")
     : t("proRataAddOnsPlaceholder");
@@ -609,6 +667,7 @@ export default function ProRataPage() {
     }));
     return buildScriptFromFullInvoice(out, lang, {
       product: selectedProduct?.label[lang] ?? "",
+      productId: selectedProduct?.id,
       anchorDay: anchor,
       addOns: addOnInfo,
     });
@@ -659,6 +718,7 @@ export default function ProRataPage() {
 
     const bundle = buildScriptFromFullInvoice(out, lang, {
       product: selectedProduct?.label[lang] ?? "",
+      productId: selectedProduct?.id,
       anchorDay: anchor,
       addOns: selectedAddonDetails.map((addon) => ({
         label: addon.label[lang],
@@ -700,24 +760,43 @@ export default function ProRataPage() {
       `${pdfStrings.summary.addOns}: ${bundle.addOnsList}`,
     ];
 
-    const amountLines: CardLine[] = [
-      {
-        text: `${pdfStrings.amounts.monthly}: ${currencyFormatter(
-          summary.monthlyNet
-        )}`,
-      },
-      {
-        text: `${pdfStrings.amounts.proRata}: ${currencyFormatter(
-          summary.proAmountNet
-        )}`,
-      },
-      {
-        text: `${pdfStrings.amounts.firstInvoice}: ${currencyFormatter(
-          summary.invoiceNet
-        )}`,
-        badge: pdfStrings.amounts.badge,
-      },
-    ];
+    const amountLines: CardLine[] = isInternetEverywhere
+      ? [
+          {
+            text: `${pdfStrings.amounts.monthlyAfterTax}: ${currencyFormatter(
+              summary.monthlyAfterTax ?? summary.monthlyNet
+            )}`,
+          },
+          {
+            text: `${pdfStrings.amounts.proRataAfterTax}: ${currencyFormatter(
+              summary.prorationAfterTax ?? summary.proAmountNet
+            )}`,
+          },
+          {
+            text: `${pdfStrings.amounts.firstInvoiceAfterTax}: ${currencyFormatter(
+              summary.invoiceAfterTax ?? summary.invoiceNet
+            )}`,
+            badge: pdfStrings.amounts.badge,
+          },
+        ]
+      : [
+          {
+            text: `${pdfStrings.amounts.monthly}: ${currencyFormatter(
+              summary.monthlyNet
+            )}`,
+          },
+          {
+            text: `${pdfStrings.amounts.proRata}: ${currencyFormatter(
+              summary.proAmountNet
+            )}`,
+          },
+          {
+            text: `${pdfStrings.amounts.firstInvoice}: ${currencyFormatter(
+              summary.invoiceNet
+            )}`,
+            badge: pdfStrings.amounts.badge,
+          },
+        ];
 
     const scriptLines = [
       { text: scriptDetailed },
@@ -768,6 +847,82 @@ export default function ProRataPage() {
       y: 260,
       align: (lang === "ar" ? "right" : "left") as CanvasTextAlign,
       direction: (lang === "ar" ? "rtl" : "ltr") as CanvasDirection,
+    };
+
+    const drawTable = (
+      title: string,
+      headers: [string, string, string, string],
+      rows: { label: string; before: number; vat: number; after: number }[],
+      totals: { label: string; before: number; vat: number; after: number }
+    ) => {
+      const rowHeight = 38;
+      const headerHeight = 42;
+      const colWidths = [
+        column.width * 0.4,
+        column.width * 0.2,
+        column.width * 0.2,
+        column.width * 0.2,
+      ];
+
+      let y = column.y;
+      ctx.save();
+      ctx.textAlign = "left";
+      ctx.direction = "ltr";
+      ctx.font = "bold 20px 'Segoe UI', 'Cairo', sans-serif";
+      ctx.fillStyle = "#ff7f11";
+      ctx.fillText(title, column.x, y);
+      y += 28;
+
+      const drawRow = (
+        values: [string, string, string, string],
+        bg: string,
+        bold = false
+      ) => {
+        let cursorX = column.x;
+        ctx.fillStyle = bg;
+        ctx.fillRect(cursorX, y, column.width, rowHeight);
+        ctx.strokeStyle = "rgba(0,0,0,0.04)";
+        ctx.strokeRect(cursorX, y, column.width, rowHeight);
+        ctx.fillStyle = "#2b2b2b";
+        ctx.font = `${bold ? "bold" : "normal"} 15px 'Segoe UI', 'Cairo', sans-serif`;
+        values.forEach((value, idx) => {
+          ctx.fillText(value, cursorX + 12, y + rowHeight / 2 + 4);
+          cursorX += colWidths[idx];
+        });
+        y += rowHeight;
+      };
+
+      drawRow(headers, "rgba(255,158,66,0.14)", true);
+      y -= rowHeight;
+      y += headerHeight;
+
+      rows.forEach((row, index) => {
+        drawRow(
+          [
+            row.label,
+            currencyFormatter(row.before),
+            currencyFormatter(row.vat),
+            currencyFormatter(row.after),
+          ],
+          index % 2 === 0
+            ? "rgba(255,255,255,0.92)"
+            : "rgba(255,248,240,0.92)"
+        );
+      });
+
+      drawRow(
+        [
+          totals.label,
+          currencyFormatter(totals.before),
+          currencyFormatter(totals.vat),
+          currencyFormatter(totals.after),
+        ],
+        "rgba(255,158,66,0.18)",
+        true
+      );
+
+      ctx.restore();
+      column.y = y + 20;
     };
 
     const drawCard = (title: string, lines: CardLine[]) => {
@@ -885,6 +1040,48 @@ export default function ProRataPage() {
       pdfStrings.sections.summary,
       summaryLines.map((text) => ({ text }))
     );
+    if (isInternetEverywhere) {
+      const tableRows: { label: string; before: number; vat: number; after: number }[] = [
+        {
+          label: pdfStrings.table.monthly,
+          before: summary.monthlyBeforeTax ?? 0,
+          vat: (summary.monthlyBeforeTax ?? 0) * VAT_RATE,
+          after: summary.monthlyAfterTax ?? summary.monthlyNet,
+        },
+        {
+          label: pdfStrings.table.proration,
+          before: summary.prorationBeforeTax ?? summary.proAmountNet,
+          vat: (summary.prorationBeforeTax ?? summary.proAmountNet) * VAT_RATE,
+          after: summary.prorationAfterTax ?? summary.proAmountNet,
+        },
+      ];
+
+      (summary.addOns ?? []).forEach((addon) => {
+        tableRows.push({
+          label: addon.label ?? pdfStrings.table.addOn,
+          before: addon.addonBeforeTax,
+          vat: addon.addonVAT,
+          after: addon.addonAfterTax,
+        });
+      });
+
+      drawTable(
+        pdfStrings.table.title,
+        [
+          pdfStrings.table.item,
+          pdfStrings.table.beforeVat,
+          pdfStrings.table.vatAmount,
+          pdfStrings.table.afterVat,
+        ],
+        tableRows,
+        {
+          label: pdfStrings.table.invoiceTotals,
+          before: summary.invoiceBeforeTax ?? summary.invoiceNet,
+          vat: summary.invoiceVAT ?? 0,
+          after: summary.invoiceAfterTax ?? summary.invoiceNet,
+        }
+      );
+    }
     drawCard(pdfStrings.sections.amounts, amountLines);
     drawCard(
       pdfStrings.sections.addOns,
@@ -987,7 +1184,9 @@ export default function ProRataPage() {
 
                   <label className="flex flex-col gap-1 text-sm">
                     <span className="opacity-70">
-                      {t("proRataBasePriceLabel")}
+                      {isInternetEverywhere
+                        ? t("proRataBasePriceLabelBeforeTax")
+                        : t("proRataBasePriceLabel")}
                     </span>
                     <input
                       type="number"
@@ -998,6 +1197,22 @@ export default function ProRataPage() {
                       className="rounded-2xl border-2 px-4 py-3 bg-background focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
                     />
                   </label>
+
+                  {isAdslOrFiber && (
+                    <label className="flex flex-col gap-1 text-sm">
+                      <span className="opacity-70">
+                        {t("proRataProrationBasePriceLabel")}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.001"
+                        value={prorationBasePrice}
+                        onChange={(e) => setProrationBasePrice(e.target.value)}
+                        className="rounded-2xl border-2 px-4 py-3 bg-background focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                      />
+                    </label>
+                  )}
 
                   <div className="flex flex-col gap-2 text-sm md:col-span-2">
                     <span className="opacity-70">
@@ -1299,11 +1514,19 @@ export default function ProRataPage() {
                     value={summary ? summary.proDays : "—"}
                   />
                   <InfoRow
-                    label={t("proRataBase")}
+                    label={
+                      isInternetEverywhere
+                        ? t("proRataBasePriceLabelBeforeTax")
+                        : t("proRataBase")
+                    }
                     value={`JD ${fmt3(basePrice)}`}
                   />
                   <InfoRow
-                    label={t("proRataAddOnsTotal")}
+                    label={
+                      isInternetEverywhere
+                        ? t("proRataAddOnsTotalBeforeTax")
+                        : t("proRataAddOnsTotal")
+                    }
                     value={`JD ${fmt3(addOnsTotal)}`}
                   />
                 </div>
@@ -1320,22 +1543,34 @@ export default function ProRataPage() {
                   />
                   <Stat
                     icon={Wallet}
-                    label={t("proRataMonthlyNet")}
-                    value={summary?.monthlyNet ?? monthlyNet}
+                    label={
+                      isInternetEverywhere
+                        ? t("proRataMonthlyAfterTax")
+                        : t("proRataMonthlyNet")
+                    }
+                    value={monthlyDisplay}
                     formatter={currencyFormatter}
                     testid="monthly"
                   />
                   <Stat
                     icon={Calculator}
-                    label={t("proRataProAmount")}
-                    value={summary?.proAmountNet ?? 0}
+                    label={
+                      isInternetEverywhere
+                        ? t("proRataProAmountAfterTax")
+                        : t("proRataProAmount")
+                    }
+                    value={prorationDisplay}
                     formatter={currencyFormatter}
                     testid="proration"
                   />
                   <Stat
                     icon={Receipt}
-                    label={t("proRataInvoice")}
-                    value={summary?.invoiceNet ?? monthlyNet}
+                    label={
+                      isInternetEverywhere
+                        ? t("proRataInvoiceAfterTax")
+                        : t("proRataInvoice")
+                    }
+                    value={invoiceDisplay}
                     formatter={currencyFormatter}
                   />
                 </div>
