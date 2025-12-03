@@ -415,7 +415,7 @@ export function buildScriptFromFullInvoice(
       main,
       addOnLines: [],
       allInclusiveNote: "",
-      callMode: "",
+      callMode: main,
       combined: main,
       addOnsList,
       addOnsListOrNone: addOnsList,
@@ -426,6 +426,16 @@ export function buildScriptFromFullInvoice(
     const monthlyAfterTax = `JD ${fmt3(o.monthlyAfterTax ?? o.monthlyNet)}${LRM}`;
     const prorationAfterTax = `JD ${fmt3(o.prorationAfterTax ?? o.proAmountNet)}${LRM}`;
     const invoiceAfterTax = `JD ${fmt3(o.invoiceAfterTax ?? o.invoiceNet)}${LRM}`;
+    const activationDate = o.activationUTC;
+    const endOfMonthDate = utcDate(
+      activationDate.getUTCFullYear(),
+      activationDate.getUTCMonth(),
+      lastDayOfMonth(
+        activationDate.getUTCFullYear(),
+        activationDate.getUTCMonth()
+      )
+    );
+    const endOfMonth = dmy(endOfMonthDate);
 
     const addOnParts = (o.addOns ?? []).map((addon) => {
       const addonAfterTax = `JD ${fmt3(addon.addonAfterTax)}${LRM}`;
@@ -434,23 +444,40 @@ export function buildScriptFromFullInvoice(
 
     const addonSentence = addOnParts.length
       ? lang === "ar"
-        ? `كما تم إضافة خدمة ${addOnParts
-            .map((item) => `${item.label} بقيمة ${item.amount}`)
+        ? `\n${addOnParts
+            .map((item) => `كما تم إضافة خدمة ${item.label} بقيمة ${item.amount}`)
             .join("، ")}.`
-        : `Additionally, the ${addOnParts
-            .map((item) => `${item.label} service has been added for ${item.amount}`)
+        : `\n${addOnParts
+            .map(
+              (item) =>
+                `Additionally, the ${item.label} service has been added for ${item.amount}`
+            )
             .join(" and ")}.`
       : "";
 
+    const nextInvoicesSentence = addOnParts.length
+      ? lang === "ar"
+        ? `\nابتداءً من الفاتورة القادمة، ستكون قيمة الاشتراك الشهري **${monthlyAfterTax}** بالإضافة إلى أي خدمات إضافية مفعّلة.`
+        : `\nFrom the next invoice onward, the monthly charge will be **${monthlyAfterTax}** plus any active additional services.`
+      : lang === "ar"
+        ? `\nابتداءً من الفاتورة القادمة، ستكون قيمة الاشتراك الشهري **${monthlyAfterTax}**.`
+        : `\nFrom the next invoice onward, the monthly charge will be **${monthlyAfterTax}**.`;
+
     const mainAr =
-      `أوضح لحضرتك أن قيمة أول فاتورة هي **${invoiceAfterTax}** (شامل الضريبة).` +
-      `\nتتضمن هذه الفاتورة اشتراك الشهر الحالي بقيمة **${monthlyAfterTax}**، بالإضافة إلى نسبة تناسب بقيمة **${prorationAfterTax}** (محسوبة على سعر الأساس قبل الخصم) عن الفترة من **${start}** إلى **${end}**.` +
-      (addonSentence && lang === "ar" ? `\n${addonSentence.trimEnd()}` : "");
+      `أوضح لحضرتك أن قيمة الفاتورة الأولى هي **${invoiceAfterTax}** (شامل الضريبة).` +
+      `\nوهي تغطي فترتين:` +
+      `\n1. نسبة تناسب عن الأيام المتبقية من الشهر الحالي (من تاريخ **${activation}** ولغاية **${endOfMonth}**).` +
+      `\n2. بالإضافة إلى اشتراك الشهر القادم بالكامل (يصدر مقدماً على الفاتورة).` +
+      addonSentence +
+      nextInvoicesSentence;
 
     const mainEn =
-      `The first invoice amount is **${invoiceAfterTax}** (Inc-Tax).` +
-      `\nThis includes the current month's subscription of **${monthlyAfterTax}**, plus a prorated amount of **${prorationAfterTax}** (calculated on the non-discounted base price) for the period from **${start}** to **${end}**.` +
-      (addonSentence && lang === "en" ? `\n${addonSentence.trim()}` : "");
+      `I would like to explain that your first invoice totals **${invoiceAfterTax}** (Inc-Tax).` +
+      `\nIt covers two periods:` +
+      `\n1. The prorated charges for the remaining days of the current month (from **${activation}** to **${endOfMonth}**).` +
+      `\n2. Plus the full subscription for the upcoming month (billed in advance).` +
+      addonSentence +
+      nextInvoicesSentence;
 
     const main = lang === "ar" ? mainAr : mainEn;
 
@@ -464,7 +491,7 @@ export function buildScriptFromFullInvoice(
       main,
       addOnLines: [],
       allInclusiveNote: "",
-      callMode: "",
+      callMode: main,
       combined: main,
       addOnsList,
       addOnsListOrNone: addOnsList,
