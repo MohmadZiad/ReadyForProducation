@@ -7,6 +7,8 @@
 
 import { translations } from "./i18n";
 
+export const VAT_RATE = 0.16;
+
 export type Lang = "ar" | "en";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -83,10 +85,29 @@ export interface PeriodResult {
   nextPeriodEndUTC: Date; // = periodEnd + 1 cycle
 }
 
+export interface AddOnBreakdown {
+  id?: string;
+  label?: string;
+  addonBeforeTax: number;
+  addonVAT: number;
+  addonAfterTax: number;
+}
+
 export interface ProResult extends PeriodResult {
-  invoiceNet: number; // قيمة فاتورة هذا الشهر (صافي)
-  monthlyNet: number; // الاشتراك الشهري المعتاد (صافي)
-  proAmountNet: number; // قيمة النسبة والتناسب لهذا الشهر
+  invoiceNet: number;
+  monthlyNet: number;
+  proAmountNet: number;
+  productId?: string;
+  monthlyBeforeTax?: number;
+  monthlyAfterTax?: number;
+  prorationBeforeTax?: number;
+  prorationAfterTax?: number;
+  invoiceBeforeTax?: number;
+  invoiceVAT?: number;
+  invoiceAfterTax?: number;
+  addOnsTotalBeforeTax?: number;
+  addOnsAfterTax?: number;
+  addOns?: AddOnBreakdown[];
 }
 
 function computePeriod(
@@ -145,13 +166,110 @@ export function computeFromFullInvoice(
 export function computeFromMonthly(
   monthlyNet: number,
   activation: string | Date,
-  anchorDay = 15
+  anchorDay = 15,
+  options?: {
+    productId?: string;
+    addOns?: ScriptAddonInfo[];
+    prorationBasePrice?: number;
+  }
 ): ProResult {
   if (!Number.isFinite(monthlyNet) || monthlyNet < 0) {
     throw new Error("monthlyNet must be a non-negative number");
   }
 
   const period = computePeriod(activation, anchorDay);
+  const addOns = options?.addOns ?? [];
+  const addOnsTotalBeforeTax = addOns.reduce((sum, addon) => sum + addon.price, 0);
+  const addOnsBreakdown: AddOnBreakdown[] = addOns.map((addon) => ({
+    id: addon.label,
+    label: addon.label,
+    addonBeforeTax: addon.price,
+    addonVAT: addon.price * VAT_RATE,
+    addonAfterTax: addon.price * (1 + VAT_RATE),
+  }));
+
+  if (options?.productId === "iew") {
+    const activationDate = period.activationUTC;
+    const isActivationOnAnchor =
+      activationDate.getUTCDate() ===
+      clampDay(
+        activationDate.getUTCFullYear(),
+        activationDate.getUTCMonth(),
+        anchorDay
+      );
+
+    const periodForCalc = isActivationOnAnchor
+      ? { ...period, ratio: 0, proDays: 0 }
+      : period;
+
+    const baseBeforeTax = monthlyNet;
+
+    const prorationBeforeTax = baseBeforeTax * periodForCalc.ratio;
+    const monthlyAfterTax = baseBeforeTax * (1 + VAT_RATE);
+    const prorationAfterTax = prorationBeforeTax * (1 + VAT_RATE);
+    const addOnsAfterTax = addOnsTotalBeforeTax * (1 + VAT_RATE);
+    const invoiceBeforeTax =
+      baseBeforeTax + prorationBeforeTax + addOnsTotalBeforeTax;
+    const invoiceVAT = invoiceBeforeTax * VAT_RATE;
+    const invoiceAfterTax = invoiceBeforeTax + invoiceVAT;
+
+    return {
+      ...periodForCalc,
+      productId: options.productId,
+      monthlyBeforeTax: baseBeforeTax,
+      monthlyAfterTax,
+      prorationBeforeTax,
+      prorationAfterTax,
+      invoiceBeforeTax,
+      invoiceVAT,
+      invoiceAfterTax,
+      addOnsTotalBeforeTax,
+      addOnsAfterTax,
+      addOns: addOnsBreakdown,
+      invoiceNet: invoiceAfterTax,
+      monthlyNet: monthlyAfterTax,
+      proAmountNet: prorationAfterTax,
+    };
+  }
+
+  const isAdslOrFiber =
+    options?.productId === "adsl" || options?.productId === "ftth";
+
+  if (isAdslOrFiber) {
+    const prorationBaseBeforeTax = Number.isFinite(options?.prorationBasePrice)
+      ? (options?.prorationBasePrice as number)
+      : monthlyNet;
+
+    const prorataRatio = period.proDays / 30;
+    const prorationBeforeTax = prorationBaseBeforeTax * prorataRatio;
+    const monthlyAfterTax = monthlyNet * (1 + VAT_RATE);
+    const prorationAfterTax = prorationBeforeTax * (1 + VAT_RATE);
+    const addOnsAfterTax = addOnsTotalBeforeTax * (1 + VAT_RATE);
+    const invoiceBeforeTax =
+      monthlyNet + prorationBeforeTax + addOnsTotalBeforeTax;
+    const invoiceVAT = invoiceBeforeTax * VAT_RATE;
+    const invoiceAfterTax = invoiceBeforeTax + invoiceVAT;
+
+    return {
+      ...period,
+      ratio: prorataRatio,
+      productId: options?.productId,
+      monthlyBeforeTax: monthlyNet,
+      monthlyAfterTax,
+      prorationBeforeTax,
+      prorationAfterTax,
+      invoiceBeforeTax,
+      invoiceVAT,
+      invoiceAfterTax,
+      addOnsTotalBeforeTax,
+      addOnsAfterTax,
+      addOns: addOnsBreakdown,
+      invoiceNet: invoiceAfterTax,
+      monthlyNet: monthlyAfterTax,
+      proAmountNet: prorationAfterTax,
+    };
+  }
+
   const proAmountNet = monthlyNet * period.ratio;
   const invoiceNet = monthlyNet + proAmountNet;
 
@@ -160,6 +278,16 @@ export function computeFromMonthly(
     invoiceNet,
     monthlyNet,
     proAmountNet,
+    monthlyBeforeTax: monthlyNet,
+    monthlyAfterTax: monthlyNet,
+    prorationBeforeTax: proAmountNet,
+    prorationAfterTax: proAmountNet,
+    invoiceBeforeTax: invoiceNet,
+    invoiceVAT: 0,
+    invoiceAfterTax: invoiceNet,
+    addOnsTotalBeforeTax: 0,
+    addOnsAfterTax: 0,
+    addOns: [],
   };
 }
 
@@ -199,12 +327,162 @@ function formatTemplate(template: string, values: Record<string, string>): strin
 export function buildScriptFromFullInvoice(
   o: ProResult,
   lang: Lang,
-  options: { product: string; anchorDay: number; addOns: ScriptAddonInfo[] }
+  options: {
+    product: string;
+    productId?: string;
+    anchorDay: number;
+    addOns: ScriptAddonInfo[];
+  }
 ): ScriptBundle {
   const start = dmy(o.periodStartUTC);
   const activation = dmy(o.activationUTC);
   const end = dmy(o.periodEndUTC);
   const next = dmy(o.nextPeriodEndUTC);
+
+  if (options.productId === "iew") {
+    const monthlyAfterTax = `JD ${fmt3(o.monthlyAfterTax ?? 0)}${LRM}`;
+    const prorationAfterTax = `JD ${fmt3(o.prorationAfterTax ?? 0)}${LRM}`;
+    const invoiceAfterTax = `JD ${fmt3(o.invoiceAfterTax ?? o.invoiceNet)}${LRM}`;
+
+    const addOnParts = (o.addOns ?? []).map((addon) => {
+      const addonAfterTax = `JD ${fmt3(addon.addonAfterTax)}${LRM}`;
+      return { label: addon.label ?? "", amount: addonAfterTax };
+    });
+
+    const addonSentenceWithProration = addOnParts.length
+      ? lang === "ar"
+        ? `كما تم إضافة خدمة ${addOnParts
+            .map((item) => `${item.label} بقيمة ${item.amount}`)
+            .join("، ")} بشكل ثابت.`
+        : `Additionally, the ${addOnParts
+            .map((item) => `${item.label} service for a fixed amount of ${item.amount}`)
+            .join(" and ")}.`
+      : "";
+
+    const addonSentenceZero = addOnParts.length
+      ? lang === "ar"
+        ? `كما تم إضافة خدمة ${addOnParts
+            .map((item) => `${item.label} بقيمة ${item.amount}`)
+            .join("، ")}.`
+        : `Additionally, the ${addOnParts
+            .map((item) => `${item.label} service has been added for ${item.amount}`)
+            .join(" and ")}.`
+      : "";
+
+    const hasProration = (o.prorationAfterTax ?? 0) > 0;
+
+    const mainAr = hasProration
+      ? `أوضح لحضرتك أن قيمة أول فاتورة هي **${invoiceAfterTax}** لاشتراك إنترنت في كل مكان.` +
+        `\nتتضمن هذه الفاتورة نسبة تناسب بقيمة **${prorationAfterTax}** عن الفترة من **${start}** حتى **${end}**، إضافة إلى الاشتراك الشهري بقيمة **${monthlyAfterTax}**.` +
+        (addonSentenceWithProration && lang === "ar"
+          ? `\n${addonSentenceWithProration}`
+          : "") +
+        `\nمن دورة الفوترة القادمة تكون قيمة الفاتورة الشهرية هي **${monthlyAfterTax}**${
+          addOnParts.length ? " بالإضافة إلى قيمة أي خدمات إضافية مفعّلة لديك." : ""
+        }`
+      : `أوضح لحضرتك أن قيمة أول فاتورة هي **${invoiceAfterTax}** (شامل الضريبة).` +
+        `\nوهي عبارة عن الاشتراك الشهري بقيمة **${monthlyAfterTax}** عن الفترة القادمة.` +
+        (addonSentenceZero && lang === "ar" ? `\n${addonSentenceZero}` : "") +
+        `\nمن دورة الفوترة القادمة تكون قيمة الفاتورة الشهرية هي **${monthlyAfterTax}**${
+          addOnParts.length ? " بالإضافة إلى الخدمات الإضافية." : ""
+        }`;
+
+    const mainEn = hasProration
+      ? `I would like to clarify that the first invoice amount is **${invoiceAfterTax}** for the 'Internet Everywhere' subscription.` +
+        `\nThis includes a prorated amount of **${prorationAfterTax}** for the period from **${start}** to **${end}**, plus the monthly subscription of **${monthlyAfterTax}**.` +
+        (addonSentenceWithProration && lang === "en"
+          ? `\n${addonSentenceWithProration}`
+          : "") +
+        `\nStarting from the next billing cycle, your monthly bill will be **${monthlyAfterTax}**${
+          addOnParts.length ? " plus the cost of any active additional services." : ""
+        }`
+      : `I would like to clarify that the first invoice amount is **${invoiceAfterTax}** (Inc-Tax).` +
+        `\nThis represents the standard monthly subscription of **${monthlyAfterTax}** for the upcoming period.` +
+        (addonSentenceZero && lang === "en" ? `\n${addonSentenceZero}` : "") +
+        `\nStarting from the next billing cycle, your monthly bill will be **${monthlyAfterTax}**${
+          addOnParts.length ? " plus any active additional services." : ""
+        }`;
+
+    const main = lang === "ar" ? mainAr : mainEn;
+
+    const addOnsList = addOnParts.length
+      ? addOnParts
+          .map((addon) => `${addon.label} (${addon.amount.replace(LRM, "")})`)
+          .join(lang === "ar" ? "، " : ", ")
+      : translations[lang].proRataNoAddOns;
+
+    return {
+      main,
+      addOnLines: [],
+      allInclusiveNote: "",
+      callMode: main,
+      combined: main,
+      addOnsList,
+      addOnsListOrNone: addOnsList,
+    };
+  }
+
+  if (options.productId === "adsl" || options.productId === "ftth") {
+    const monthlyAfterTax = `JD ${fmt3(o.monthlyAfterTax ?? o.monthlyNet)}${LRM}`;
+    const prorationAfterTax = `JD ${fmt3(o.prorationAfterTax ?? o.proAmountNet)}${LRM}`;
+    const invoiceAfterTax = `JD ${fmt3(o.invoiceAfterTax ?? o.invoiceNet)}${LRM}`;
+    const prorationStartDate = dmy(o.activationUTC);
+    const prorationEndDate = dmy(o.periodEndUTC);
+    const fullCycleStartDate = dmy(o.periodEndUTC);
+    const fullCycleEndDate = dmy(o.nextPeriodEndUTC);
+    const productNameAr = options.product || "";
+    const productNameEn = options.product || "";
+
+    const addOnParts = (o.addOns ?? []).map((addon) => {
+      const addonAfterTax = `JD ${fmt3(addon.addonAfterTax)}${LRM}`;
+      return { label: addon.label ?? "", amount: addonAfterTax };
+    });
+
+    const addonSentence = addOnParts.length
+      ? lang === "ar"
+        ? ` كما تم إضافة خدمة ${addOnParts
+            .map((item) => `${item.label} بقيمة ثابتة ${item.amount}`)
+            .join("، ")}.`
+        : ` In addition, the ${addOnParts
+            .map(
+              (item) =>
+                `${item.label} service has been added for a fixed amount of ${item.amount}`
+            )
+            .join(" and ")}.`
+      : "";
+
+    const mainAr =
+      `أوضح لحضرتك أن قيمة أول فاتورة على خدمة ${productNameAr} هي **${invoiceAfterTax} JD**. ` +
+      `هذه الفاتورة تغطي الفترة من تاريخ التفعيل **${prorationStartDate}** حتى **${prorationEndDate}** بنسبة وتناسب بقيمة **${prorationAfterTax} JD**، بالإضافة إلى اشتراك شهر كامل يُصدر مقدمًا عن الفترة من **${fullCycleStartDate}** ولغاية **${fullCycleEndDate}** بقيمة **${monthlyAfterTax} JD**. ` +
+      `ابتداءً من دورة الفوترة التالية (من **${fullCycleStartDate}** إلى **${fullCycleEndDate}** وما بعدها) تكون قيمة الفاتورة الشهرية لاشتراك ${productNameAr} **${monthlyAfterTax} JD**${
+        addOnParts.length ? " مع إضافة أي خدمات إضافية مفعّلة لديك." : "."
+      }${addonSentence}`;
+
+    const mainEn =
+      `I would like to clarify that your first bill for the ${productNameEn} service is **${invoiceAfterTax} JOD**. ` +
+      `This bill covers the period from your activation date **${prorationStartDate}** to **${prorationEndDate}** on a pro-rated basis for **${prorationAfterTax} JOD**, plus a full month billed in advance from **${fullCycleStartDate}** to **${fullCycleEndDate}** for **${monthlyAfterTax} JOD**. ` +
+      `Starting from the next billing cycle (from **${fullCycleStartDate}** to **${fullCycleEndDate}** and onwards), your regular monthly bill for ${productNameEn} will be **${monthlyAfterTax} JOD**${
+        addOnParts.length ? " plus any active additional services." : "."
+      }${addonSentence}`;
+
+    const main = lang === "ar" ? mainAr : mainEn;
+
+    const addOnsList = addOnParts.length
+      ? addOnParts
+          .map((addon) => `${addon.label} (${addon.amount.replace(LRM, "")})`)
+          .join(lang === "ar" ? "، " : ", ")
+      : translations[lang].proRataNoAddOns;
+
+    return {
+      main,
+      addOnLines: [],
+      allInclusiveNote: "",
+      callMode: main,
+      combined: main,
+      addOnsList,
+      addOnsListOrNone: addOnsList,
+    };
+  }
 
   const invoice = `JD ${fmt3(o.invoiceNet)}${LRM}`;
   const monthly = `JD ${fmt3(o.monthlyNet)}${LRM}`;
