@@ -426,16 +426,12 @@ export function buildScriptFromFullInvoice(
     const monthlyAfterTax = `JD ${fmt3(o.monthlyAfterTax ?? o.monthlyNet)}${LRM}`;
     const prorationAfterTax = `JD ${fmt3(o.prorationAfterTax ?? o.proAmountNet)}${LRM}`;
     const invoiceAfterTax = `JD ${fmt3(o.invoiceAfterTax ?? o.invoiceNet)}${LRM}`;
-    const activationDate = o.activationUTC;
-    const endOfMonthDate = utcDate(
-      activationDate.getUTCFullYear(),
-      activationDate.getUTCMonth(),
-      lastDayOfMonth(
-        activationDate.getUTCFullYear(),
-        activationDate.getUTCMonth()
-      )
-    );
-    const endOfMonth = dmy(endOfMonthDate);
+    const prorationStartDate = dmy(o.activationUTC);
+    const prorationEndDate = dmy(o.periodEndUTC);
+    const fullCycleStartDate = dmy(o.periodEndUTC);
+    const fullCycleEndDate = dmy(o.nextPeriodEndUTC);
+    const productNameAr = options.product || "";
+    const productNameEn = options.product || "";
 
     const addOnParts = (o.addOns ?? []).map((addon) => {
       const addonAfterTax = `JD ${fmt3(addon.addonAfterTax)}${LRM}`;
@@ -444,40 +440,30 @@ export function buildScriptFromFullInvoice(
 
     const addonSentence = addOnParts.length
       ? lang === "ar"
-        ? `\n${addOnParts
-            .map((item) => `كما تم إضافة خدمة ${item.label} بقيمة ${item.amount}`)
+        ? ` كما تم إضافة خدمة ${addOnParts
+            .map((item) => `${item.label} بقيمة ثابتة ${item.amount}`)
             .join("، ")}.`
-        : `\n${addOnParts
+        : ` In addition, the ${addOnParts
             .map(
               (item) =>
-                `Additionally, the ${item.label} service has been added for ${item.amount}`
+                `${item.label} service has been added for a fixed amount of ${item.amount}`
             )
             .join(" and ")}.`
       : "";
 
-    const nextInvoicesSentence = addOnParts.length
-      ? lang === "ar"
-        ? `\nابتداءً من الفاتورة القادمة، ستكون قيمة الاشتراك الشهري **${monthlyAfterTax}** بالإضافة إلى أي خدمات إضافية مفعّلة.`
-        : `\nFrom the next invoice onward, the monthly charge will be **${monthlyAfterTax}** plus any active additional services.`
-      : lang === "ar"
-        ? `\nابتداءً من الفاتورة القادمة، ستكون قيمة الاشتراك الشهري **${monthlyAfterTax}**.`
-        : `\nFrom the next invoice onward, the monthly charge will be **${monthlyAfterTax}**.`;
-
     const mainAr =
-      `أوضح لحضرتك أن قيمة الفاتورة الأولى هي **${invoiceAfterTax}** (شامل الضريبة).` +
-      `\nوهي تغطي فترتين:` +
-      `\n1. نسبة تناسب عن الأيام المتبقية من الشهر الحالي (من تاريخ **${activation}** ولغاية **${endOfMonth}**).` +
-      `\n2. بالإضافة إلى اشتراك الشهر القادم بالكامل (يصدر مقدماً على الفاتورة).` +
-      addonSentence +
-      nextInvoicesSentence;
+      `أوضح لحضرتك أن قيمة أول فاتورة على خدمة ${productNameAr} هي **${invoiceAfterTax} JD**. ` +
+      `هذه الفاتورة تغطي الفترة من تاريخ التفعيل **${prorationStartDate}** حتى **${prorationEndDate}** بنسبة وتناسب بقيمة **${prorationAfterTax} JD**، بالإضافة إلى اشتراك شهر كامل يُصدر مقدمًا عن الفترة من **${fullCycleStartDate}** ولغاية **${fullCycleEndDate}** بقيمة **${monthlyAfterTax} JD**. ` +
+      `ابتداءً من دورة الفوترة التالية (من **${fullCycleStartDate}** إلى **${fullCycleEndDate}** وما بعدها) تكون قيمة الفاتورة الشهرية لاشتراك ${productNameAr} **${monthlyAfterTax} JD**${
+        addOnParts.length ? " مع إضافة أي خدمات إضافية مفعّلة لديك." : "."
+      }${addonSentence}`;
 
     const mainEn =
-      `I would like to explain that your first invoice totals **${invoiceAfterTax}** (Inc-Tax).` +
-      `\nIt covers two periods:` +
-      `\n1. The prorated charges for the remaining days of the current month (from **${activation}** to **${endOfMonth}**).` +
-      `\n2. Plus the full subscription for the upcoming month (billed in advance).` +
-      addonSentence +
-      nextInvoicesSentence;
+      `I would like to clarify that your first bill for the ${productNameEn} service is **${invoiceAfterTax} JOD**. ` +
+      `This bill covers the period from your activation date **${prorationStartDate}** to **${prorationEndDate}** on a pro-rated basis for **${prorationAfterTax} JOD**, plus a full month billed in advance from **${fullCycleStartDate}** to **${fullCycleEndDate}** for **${monthlyAfterTax} JOD**. ` +
+      `Starting from the next billing cycle (from **${fullCycleStartDate}** to **${fullCycleEndDate}** and onwards), your regular monthly bill for ${productNameEn} will be **${monthlyAfterTax} JOD**${
+        addOnParts.length ? " plus any active additional services." : "."
+      }${addonSentence}`;
 
     const main = lang === "ar" ? mainAr : mainEn;
 
