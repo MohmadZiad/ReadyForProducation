@@ -167,13 +167,26 @@ export function computeFromMonthly(
   monthlyNet: number,
   activation: string | Date,
   anchorDay = 15,
-  options?: { productId?: string; addOns?: ScriptAddonInfo[] }
+  options?: {
+    productId?: string;
+    addOns?: ScriptAddonInfo[];
+    prorationBasePrice?: number;
+  }
 ): ProResult {
   if (!Number.isFinite(monthlyNet) || monthlyNet < 0) {
     throw new Error("monthlyNet must be a non-negative number");
   }
 
   const period = computePeriod(activation, anchorDay);
+  const addOns = options?.addOns ?? [];
+  const addOnsTotalBeforeTax = addOns.reduce((sum, addon) => sum + addon.price, 0);
+  const addOnsBreakdown: AddOnBreakdown[] = addOns.map((addon) => ({
+    id: addon.label,
+    label: addon.label,
+    addonBeforeTax: addon.price,
+    addonVAT: addon.price * VAT_RATE,
+    addonAfterTax: addon.price * (1 + VAT_RATE),
+  }));
 
   if (options?.productId === "iew") {
     const activationDate = period.activationUTC;
@@ -190,11 +203,6 @@ export function computeFromMonthly(
       : period;
 
     const baseBeforeTax = monthlyNet;
-    const addOns = options.addOns ?? [];
-    const addOnsTotalBeforeTax = addOns.reduce(
-      (sum, addon) => sum + addon.price,
-      0
-    );
 
     const prorationBeforeTax = baseBeforeTax * periodForCalc.ratio;
     const monthlyAfterTax = baseBeforeTax * (1 + VAT_RATE);
@@ -205,18 +213,48 @@ export function computeFromMonthly(
     const invoiceVAT = invoiceBeforeTax * VAT_RATE;
     const invoiceAfterTax = invoiceBeforeTax + invoiceVAT;
 
-    const addOnsBreakdown: AddOnBreakdown[] = addOns.map((addon) => ({
-      id: addon.label,
-      label: addon.label,
-      addonBeforeTax: addon.price,
-      addonVAT: addon.price * VAT_RATE,
-      addonAfterTax: addon.price * (1 + VAT_RATE),
-    }));
-
     return {
       ...periodForCalc,
       productId: options.productId,
       monthlyBeforeTax: baseBeforeTax,
+      monthlyAfterTax,
+      prorationBeforeTax,
+      prorationAfterTax,
+      invoiceBeforeTax,
+      invoiceVAT,
+      invoiceAfterTax,
+      addOnsTotalBeforeTax,
+      addOnsAfterTax,
+      addOns: addOnsBreakdown,
+      invoiceNet: invoiceAfterTax,
+      monthlyNet: monthlyAfterTax,
+      proAmountNet: prorationAfterTax,
+    };
+  }
+
+  const isAdslOrFiber =
+    options?.productId === "adsl" || options?.productId === "ftth";
+
+  if (isAdslOrFiber) {
+    const prorationBaseBeforeTax = Number.isFinite(options?.prorationBasePrice)
+      ? (options?.prorationBasePrice as number)
+      : monthlyNet;
+
+    const prorataRatio = period.proDays / 30;
+    const prorationBeforeTax = prorationBaseBeforeTax * prorataRatio;
+    const monthlyAfterTax = monthlyNet * (1 + VAT_RATE);
+    const prorationAfterTax = prorationBeforeTax * (1 + VAT_RATE);
+    const addOnsAfterTax = addOnsTotalBeforeTax * (1 + VAT_RATE);
+    const invoiceBeforeTax =
+      monthlyNet + prorationBeforeTax + addOnsTotalBeforeTax;
+    const invoiceVAT = invoiceBeforeTax * VAT_RATE;
+    const invoiceAfterTax = invoiceBeforeTax + invoiceVAT;
+
+    return {
+      ...period,
+      ratio: prorataRatio,
+      productId: options?.productId,
+      monthlyBeforeTax: monthlyNet,
       monthlyAfterTax,
       prorationBeforeTax,
       prorationAfterTax,
@@ -364,6 +402,55 @@ export function buildScriptFromFullInvoice(
         `\nStarting from the next billing cycle, your monthly bill will be **${monthlyAfterTax}**${
           addOnParts.length ? " plus any active additional services." : ""
         }`;
+
+    const main = lang === "ar" ? mainAr : mainEn;
+
+    const addOnsList = addOnParts.length
+      ? addOnParts
+          .map((addon) => `${addon.label} (${addon.amount.replace(LRM, "")})`)
+          .join(lang === "ar" ? "، " : ", ")
+      : translations[lang].proRataNoAddOns;
+
+    return {
+      main,
+      addOnLines: [],
+      allInclusiveNote: "",
+      callMode: "",
+      combined: main,
+      addOnsList,
+      addOnsListOrNone: addOnsList,
+    };
+  }
+
+  if (options.productId === "adsl" || options.productId === "ftth") {
+    const monthlyAfterTax = `JD ${fmt3(o.monthlyAfterTax ?? o.monthlyNet)}${LRM}`;
+    const prorationAfterTax = `JD ${fmt3(o.prorationAfterTax ?? o.proAmountNet)}${LRM}`;
+    const invoiceAfterTax = `JD ${fmt3(o.invoiceAfterTax ?? o.invoiceNet)}${LRM}`;
+
+    const addOnParts = (o.addOns ?? []).map((addon) => {
+      const addonAfterTax = `JD ${fmt3(addon.addonAfterTax)}${LRM}`;
+      return { label: addon.label ?? "", amount: addonAfterTax };
+    });
+
+    const addonSentence = addOnParts.length
+      ? lang === "ar"
+        ? `كما تم إضافة خدمة ${addOnParts
+            .map((item) => `${item.label} بقيمة ${item.amount}`)
+            .join("، ")}.`
+        : `Additionally, the ${addOnParts
+            .map((item) => `${item.label} service has been added for ${item.amount}`)
+            .join(" and ")}.`
+      : "";
+
+    const mainAr =
+      `أوضح لحضرتك أن قيمة أول فاتورة هي **${invoiceAfterTax}** (شامل الضريبة).` +
+      `\nتتضمن هذه الفاتورة اشتراك الشهر الحالي بقيمة **${monthlyAfterTax}**، بالإضافة إلى نسبة تناسب بقيمة **${prorationAfterTax}** (محسوبة على سعر الأساس قبل الخصم) عن الفترة من **${start}** إلى **${end}**.` +
+      (addonSentence && lang === "ar" ? `\n${addonSentence.trimEnd()}` : "");
+
+    const mainEn =
+      `The first invoice amount is **${invoiceAfterTax}** (Inc-Tax).` +
+      `\nThis includes the current month's subscription of **${monthlyAfterTax}**, plus a prorated amount of **${prorationAfterTax}** (calculated on the non-discounted base price) for the period from **${start}** to **${end}**.` +
+      (addonSentence && lang === "en" ? `\n${addonSentence.trim()}` : "");
 
     const main = lang === "ar" ? mainAr : mainEn;
 

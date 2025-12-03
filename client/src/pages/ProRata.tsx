@@ -424,6 +424,7 @@ export default function ProRataPage() {
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const [callMode, setCallMode] = React.useState(false);
   const [out, setOut] = React.useState<ComputedResult | null>(null);
+  const [prorationBasePrice, setProrationBasePrice] = React.useState<string>("");
   const copyTimeout = React.useRef<number | null>(null);
 
   const configQuery = useQuery<PricingConfig>({
@@ -463,6 +464,8 @@ export default function ProRataPage() {
   );
 
   const isInternetEverywhere = selectedProduct?.id === "iew";
+  const isAdslOrFiber =
+    selectedProduct?.id === "adsl" || selectedProduct?.id === "ftth";
 
   const selectedAddonDetails = React.useMemo(
     () => addons.filter((addon) => selectedAddOns.includes(addon.id)),
@@ -474,18 +477,25 @@ export default function ProRataPage() {
     [selectedAddonDetails]
   );
 
-  const monthlyInput = isInternetEverywhere ? basePrice : basePrice + addOnsTotal;
+  const monthlyInput =
+    isInternetEverywhere || isAdslOrFiber ? basePrice : basePrice + addOnsTotal;
+
+  const prorationBaseNumber = prorationBasePrice === ""
+    ? undefined
+    : Number(prorationBasePrice);
 
   const preview = React.useMemo(() => {
     try {
       return computeFromMonthly(monthlyInput, activation, anchor, {
         productId: selectedProduct?.id,
-        addOns: isInternetEverywhere
-          ? selectedAddonDetails.map((addon) => ({
-              label: addon.label[lang],
-              price: addon.price,
-            }))
-          : [],
+        addOns:
+          isInternetEverywhere || isAdslOrFiber
+            ? selectedAddonDetails.map((addon) => ({
+                label: addon.label[lang],
+                price: addon.price,
+              }))
+            : [],
+        prorationBasePrice: isAdslOrFiber ? prorationBaseNumber : undefined,
       });
     } catch {
       return null;
@@ -495,9 +505,11 @@ export default function ProRataPage() {
     activation,
     anchor,
     selectedProduct?.id,
+    isAdslOrFiber,
     isInternetEverywhere,
     selectedAddonDetails,
     lang,
+    prorationBaseNumber,
   ]);
 
   React.useEffect(() => {
@@ -517,6 +529,7 @@ export default function ProRataPage() {
     setProductId(id);
     setAnchor(product.anchorDay);
     setBasePrice(product.defaultBasePrice);
+    setProrationBasePrice("");
   };
 
   const handleToggleAddon = (id: string, checked: boolean) => {
@@ -618,27 +631,28 @@ export default function ProRataPage() {
   const summary = out ?? preview;
   const ratioValue = summary?.ratio ?? 0;
   const monthlyDisplay = summary
-    ? isInternetEverywhere
+    ? isInternetEverywhere || isAdslOrFiber
       ? summary.monthlyAfterTax ?? summary.monthlyNet
       : summary.monthlyNet
-    : isInternetEverywhere
+    : isInternetEverywhere || isAdslOrFiber
       ? basePrice * (1 + VAT_RATE)
       : monthlyInput;
 
   const prorationDisplay = summary
-    ? isInternetEverywhere
+    ? isInternetEverywhere || isAdslOrFiber
       ? summary.prorationAfterTax ?? 0
       : summary.proAmountNet ?? 0
-    : isInternetEverywhere
-      ? basePrice * ratioValue * (1 + VAT_RATE)
+    : isInternetEverywhere || isAdslOrFiber
+      ? (prorationBaseNumber ?? basePrice) * ratioValue * (1 + VAT_RATE)
       : monthlyInput * ratioValue;
 
   const invoiceDisplay = summary
-    ? isInternetEverywhere
+    ? isInternetEverywhere || isAdslOrFiber
       ? summary.invoiceAfterTax ?? summary.invoiceNet
       : summary.invoiceNet
-    : isInternetEverywhere
-      ? (basePrice * (1 + ratioValue) + addOnsTotal) * (1 + VAT_RATE)
+    : isInternetEverywhere || isAdslOrFiber
+      ? (basePrice + (prorationBaseNumber ?? basePrice) * ratioValue + addOnsTotal) *
+        (1 + VAT_RATE)
       : monthlyInput + prorationDisplay;
 
   const addOnsLabel = selectedAddonDetails.length
@@ -1183,6 +1197,22 @@ export default function ProRataPage() {
                       className="rounded-2xl border-2 px-4 py-3 bg-background focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
                     />
                   </label>
+
+                  {isAdslOrFiber && (
+                    <label className="flex flex-col gap-1 text-sm">
+                      <span className="opacity-70">
+                        {t("proRataProrationBasePriceLabel")}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.001"
+                        value={prorationBasePrice}
+                        onChange={(e) => setProrationBasePrice(e.target.value)}
+                        className="rounded-2xl border-2 px-4 py-3 bg-background focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                      />
+                    </label>
+                  )}
 
                   <div className="flex flex-col gap-2 text-sm md:col-span-2">
                     <span className="opacity-70">
